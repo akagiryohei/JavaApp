@@ -1,25 +1,26 @@
 package Controller;
 
-import View.MainWindowView;
-import Model.MainWindowModel;
 import Entity.Enum.ViewStateEnum;
+import Interface.Controller.IMainWindowController;
+import Interface.Model.IMainWindowModel;
+import Interface.View.IMainWindowView;
 
 /*
  * 画面全般コントローラ
  */
-public class MainWindowController extends ControllerBase
+public class MainWindowController extends ControllerBase implements IMainWindowController
 {
   // 画面表示状態
   private ViewStateEnum ViewState;
 
   // Viewインスタンス
-  private MainWindowView View;
+  private IMainWindowView View;
 
   // Modelインスタンス
-  private MainWindowModel Model;
+  private IMainWindowModel Model;
 
   // コンストラクタ
-  public MainWindowController(MainWindowView view, MainWindowModel model)
+  public MainWindowController(IMainWindowView view, IMainWindowModel model)
   {
     this.View = view;
     this.Model = model;

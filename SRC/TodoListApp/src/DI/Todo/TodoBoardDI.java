@@ -1,5 +1,7 @@
 package DI.Todo;
 
-public class TodoBoardDI {
+import Interface.DI.Todo.ITodoBoardDI;
+
+public class TodoBoardDI implements ITodoBoardDI {
     
 }

@@ -4,6 +4,7 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
 
+import Interface.View.Todo.ITodoBoardView;
 import View.Todo.TodoBoardView;
 import View.Todo.TodoListBaseView;
 import View.Todo.TodoSideBasePanel;
@@ -14,10 +15,13 @@ import View.Todo.TodoSideBasePanel;
 public class TodoSideBoardPanel extends TodoSideBasePanel implements ActionListener
 {
     // 親画面インスタンス
-    private TodoBoardView TodoBoardViewInstance;
+    private ITodoBoardView TodoBoardViewInstance;
     
-
-    public TodoSideBoardPanel(TodoBoardView todoBoardView)
+    /**
+     * コンストラクタ
+     * @param todoBoardView ボード型表示画面のインスタンス
+     */
+    public TodoSideBoardPanel(ITodoBoardView todoBoardView)
     {
         // 親インスタンス保持
         this.TodoBoardViewInstance = todoBoardView;
@@ -40,6 +44,9 @@ public class TodoSideBoardPanel extends TodoSideBasePanel implements ActionListe
         this.GanttchartButton.removeActionListener(this);
     }
     
+    /**
+     * ボタンからのアクションリスナー
+     */
     public void actionPerformed(ActionEvent e)
     {
         switch(e.getActionCommand())
@@ -61,7 +68,9 @@ public class TodoSideBoardPanel extends TodoSideBasePanel implements ActionListe
                 break;
         }
     }
-      // ボードボタンクリック時の処理
+    /**
+     * ボードボタンクリック時の処理
+     */
     private void BoardButtonClicked()
     {
         System.out.println("ボードボタンが押下された");
@@ -69,25 +78,29 @@ public class TodoSideBoardPanel extends TodoSideBasePanel implements ActionListe
         // これに変わる処理を作る必要がある
         // ボード画面に遷移する
         // this.TodoListViewInstance.TarnationAfterLoginView();
-        this.TodoBoardViewInstance.BaseViewInstance.ChangeView(TodoListBaseView.ViewType.TodoBoardView);
-
+        // TODO: イベントリスナに置換する
+        this.TodoBoardViewInstance.BoardButtonClicked();;
     }
 
-    // リストボタンクリック時の処理　現在リスト画面であるかを確認する必要がある
+    /**
+     * リストボタンクリック時の処理　現在リスト画面であるかを確認する必要がある
+     */
     private void ListButtonClicked()
     {
         System.out.println("リスト作成ボタンが押下された");
 
-        // TODO: 親画面に対して子画面から表示状態を指示するのは違和感を感じる（コールバックやイベントハンドラに修正を検討）
-        this.TodoBoardViewInstance.BaseViewInstance.ChangeView(TodoListBaseView.ViewType.TodoListView);
+        // TODO: イベントリスナに置換する
+        this.TodoBoardViewInstance.ListButtonClicked();
     }
 
-    // ガントチャートボタンクリック時の処理
+    /**
+     * ガントチャートボタンクリック時の処理
+     */
     private void GanttchartButtonClicked()
     {
         System.out.println("ガントチャートボタンが押下された");
-
-        // TODO: 親画面に対して子画面から表示状態を指示するのは違和感を感じる（コールバックやイベントハンドラに修正を検討）
-        this.TodoBoardViewInstance.BaseViewInstance.ChangeView(TodoListBaseView.ViewType.TodoGanttchartView);
+        
+        // TODO: イベントリスナに置換する
+        this.TodoBoardViewInstance.GanttchartButtonClicked();
     }
 }

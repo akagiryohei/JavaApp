@@ -23,6 +23,9 @@ public abstract class TodoSideBasePanel extends JPanelViewBase implements Action
     // ガントチャートボタン
     public JButton GanttchartButton;
 
+    /**
+     * コンストラクタ
+     */
     public TodoSideBasePanel()
     {
         this.setLayout(null);
@@ -30,7 +33,7 @@ public abstract class TodoSideBasePanel extends JPanelViewBase implements Action
 
         // ログインユーザー名ラベルの設定
         // 何文字上限かはまた設定
-        this.LoginUserNameLabel = new JLabel("user@gmail.com");
+        this.LoginUserNameLabel = new JLabel();
         this.LoginUserNameLabel.setBounds(0,0,230,64);
         this.LoginUserNameLabel.setVerticalAlignment(JLabel.CENTER); //垂直位置
         this.LoginUserNameLabel.setHorizontalAlignment(JLabel.CENTER); //水平位置
@@ -70,9 +73,19 @@ public abstract class TodoSideBasePanel extends JPanelViewBase implements Action
     {
     }
     
+    /**
+     * ボタンからのアクションリスナー
+     */
     public void actionPerformed(ActionEvent e)
     {
     }
 
-
+    /**
+     * ログイン中ユーザー名を設定
+     * @param userName 画面表示するユーザ名
+     */
+    public void SetUserName(String userName)
+    {
+        this.LoginUserNameLabel.setText(userName);
+    }
 }

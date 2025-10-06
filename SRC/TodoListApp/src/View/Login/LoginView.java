@@ -2,56 +2,79 @@ package View.Login;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.util.List;
 import java.util.ArrayList;
 import java.util.regex.Pattern;
 import java.util.function.Consumer;
 import java.nio.charset.StandardCharsets;
 
-
 import javax.security.auth.login.LoginContext;
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.event.EventListenerList;
 
 import Controller.Login.LoginController;
+import Entity.UserData;
 import Entity.Dialog.Constants;
+import Entity.Dialog.ReminderList;
+import Entity.Enum.LogLevel;
+import Interface.Controller.Login.ILoginController;
+import Interface.View.IMainWindowView;
+import Interface.View.Login.ILoginView;
 import View.JPanelViewBase;
+import View.Login.Listener.LoginViewListener;
 import View.MainWindowView;
+import View.Dialog.CommonDialogView;
+import View.Dialog.CommonDialogView.CommonDialogType;
+import View.Dialog.ReminderDialogView;
+import View.Dialog.Listener.ReminderDialogViewListener;
 
 // ログイン画面Viewクラス
-public class LoginView extends JPanelViewBase implements ActionListener
+public class LoginView extends JPanelViewBase implements ILoginView, ReminderDialogViewListener, ActionListener, DocumentListener
 {
   // ユーザ名テキストフィールドのインスタンス
-  private JTextField userNameTextField;
+  private JTextField UserNameTextField;
 
   // パスワード文字列テキストフィールドのインスタンス
-  private JPasswordField passwordTextField;
+  private JPasswordField PasswordTextField;
 
   // 新規登録ボタンのインスタンス
-  private JButton createAccountButton;
+  private JButton CreateAccountButton;
 
   // ログインボタンのインスタンス
-  private JButton loginButton;
+  private JButton LoginButton;
 
   // パスワード忘却者ボタンのインスタンス
   private JButton LostPassUserButton;
 
-  // 親画面のインスタンス
-  private LoginBaseView BaseViewInstance;
-
   // ログインコントローラー
-  public LoginController controller;
+  private ILoginController Controller;
 
-  // MainWindowのインスタンス
-  private MainWindowView MainWindowViewInstance;
+  // イベントリスナインスタンス
+  protected EventListenerList ListenerList;
+
+  // 共通ダイアログのインスタンス
+  private CommonDialogView CommonDialogView;
+
+  // リマインダーダイアログのインスタンス
+  private ReminderDialogView ReminderDialogView;
+
+  // ログイン成功したユーザID
+  private UserData LoginedUserData;
 
   // コンストラクタ
-  // baseViewInstance : 親画面のインスタンス
-  public LoginView(LoginBaseView baseViewInstance, MainWindowView mainWindowView)
+  // commonDialogView : 共通ダイアログインスタンス
+  // reminderDialogView : リマインダーダイアログインスタンス
+  public LoginView(CommonDialogView commonDialogView, ReminderDialogView reminderDialogView)
   {
-    // TODO : 親画面のインスタンスは型依存ではなくinterface等に修正し依存しないようにする
-    // TODO : 親画面のインスタンスをView層で直接持つのは検討の余地あり
-    this.BaseViewInstance = baseViewInstance;
-    this.MainWindowViewInstance = mainWindowView;
+    // イベントリスナインスタンスを初期化
+    this.ListenerList = new EventListenerList();
+    
+    this.CommonDialogView = commonDialogView;
+    this.ReminderDialogView = reminderDialogView;
 
+    this.LoginedUserData = null;
 
     // 一番親のLoginViewにかかってるLayoutマネージャーの向こうかが可能になる
     this.setLayout(null);
@@ -66,7 +89,7 @@ public class LoginView extends JPanelViewBase implements ActionListener
     this.add(appNameLabel);
 
     // ユーザ名入力欄の設定
-    JLabel userLabel = new JLabel("ユーザ名(メールアドレス)");
+    JLabel userLabel = new JLabel("<html><body><center>ユーザ名<br />(メールアドレス)</center></html></body>");
     userLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
     userLabel.setBounds(300,176,200,66);
     userLabel.setVerticalAlignment(JLabel.CENTER); //垂直位置
@@ -76,10 +99,10 @@ public class LoginView extends JPanelViewBase implements ActionListener
     
     this.add(userLabel);
 
-    this.userNameTextField = new JTextField();
-    this.userNameTextField.setBounds(500,176,200,66);
-    this.userNameTextField.setColumns(1);
-    this.add(this.userNameTextField);
+    this.UserNameTextField = new JTextField();
+    this.UserNameTextField.setBounds(500,176,200,66);
+    this.UserNameTextField.setColumns(1);
+    this.add(this.UserNameTextField);
 
     // パスワード入力欄の設定
     JLabel passwordLabel = new JLabel("パスワード");
@@ -91,18 +114,18 @@ public class LoginView extends JPanelViewBase implements ActionListener
     passwordLabel.setBackground(Color.CYAN);
     this.add(passwordLabel);
 
-    this.passwordTextField = new JPasswordField();
-    this.passwordTextField.setPreferredSize(new Dimension(20, 20));
-    this.passwordTextField.setBounds(500,264,200,66);
-    this.passwordTextField.setColumns(1);
-    this.add(this.passwordTextField);
+    this.PasswordTextField = new JPasswordField();
+    this.PasswordTextField.setPreferredSize(new Dimension(20, 20));
+    this.PasswordTextField.setBounds(500,264,200,66);
+    this.PasswordTextField.setColumns(1);
+    this.add(this.PasswordTextField);
 
     // ログインボタンの設定
-    this.loginButton = new JButton("Login");
-    this.loginButton.setActionCommand("LoginButton");
-    this.loginButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-    this.loginButton.setBounds(300,352,400,44);
-    this.add(this.loginButton);
+    this.LoginButton = new JButton("Login");
+    this.LoginButton.setActionCommand("LoginButton");
+    this.LoginButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+    this.LoginButton.setBounds(300,352,400,44);
+    this.add(this.LoginButton);
 
     // パスワード忘却者ボタンの設定
     this.LostPassUserButton = new JButton("パスワード忘却者へ");
@@ -113,17 +136,19 @@ public class LoginView extends JPanelViewBase implements ActionListener
     
 
     // 新規登録ボタンの設定
-    this.createAccountButton = new JButton("新規アカウント登録");
-    this.createAccountButton.setActionCommand("CreateAccountButton");
-    this.createAccountButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-    this.createAccountButton.setBounds(300,484,400,44);
+    this.CreateAccountButton = new JButton("新規アカウント登録");
+    this.CreateAccountButton.setActionCommand("CreateAccountButton");
+    this.CreateAccountButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+    this.CreateAccountButton.setBounds(300,484,400,44);
 
-    this.add(this.createAccountButton);
+    this.add(this.CreateAccountButton);
 
     // ログイン画面にパーツを配置
   }
 
-  // ボタンからのアクションリスナー
+  /**
+   * ボタンからのアクションリスナー
+   */
   public void actionPerformed(ActionEvent e)
   {
     switch (e.getActionCommand())
@@ -146,66 +171,170 @@ public class LoginView extends JPanelViewBase implements ActionListener
     }
   }
 
+  /**
+   * ユーザ名とパスワードが入力されたとき
+   * @param e 変化を検知した入力欄のインスタンス情報
+  */
+  @Override
+  public void insertUpdate(DocumentEvent e) {
+    this.ChangedTextField(e);
+  }
+
+  /**
+   * ユーザ名とパスワードが消されたとき
+   * @param e 変化を検知した入力欄のインスタンス情報
+  */
+  @Override
+  public void removeUpdate(DocumentEvent e) {
+    this.ChangedTextField(e);
+  }
+
+  /**
+   * リスナーの仕様上必要
+   * @param e 変化を検知した入力欄のインスタンス情報
+  */
+  @Override
+  public void changedUpdate(DocumentEvent e) {
+    //何もしない
+  }
+
   public void Show()
   {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面オープン"); });
+
     // ボタン押下イベントのリスナーを登録する
-    this.loginButton.addActionListener(this);
-    this.createAccountButton.addActionListener(this);
+    this.LoginButton.addActionListener(this);
+    this.CreateAccountButton.addActionListener(this);
     this.LostPassUserButton.addActionListener(this);
+    this.ReminderDialogView.AddListener(this);
+    this.UserNameTextField.getDocument().addDocumentListener(this);
+    this.PasswordTextField.getDocument().addDocumentListener(this);
+    this.LoginButtonDisabled(true);
   }
 
   public void Hide()
   {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面クローズ"); });
+
     // ボタン押下イベントのリスナーを解除する
-    this.loginButton.removeActionListener(this);
-    this.createAccountButton.removeActionListener(this);
+    this.LoginButton.removeActionListener(this);
+    this.CreateAccountButton.removeActionListener(this);
     this.LostPassUserButton.removeActionListener(this);
+    this.UserNameTextField.getDocument().removeDocumentListener(this);
+    this.PasswordTextField.getDocument().removeDocumentListener(this);
   }
 
-  // ログインボタンクリック時の処理
+  /**
+   * コントローラインスタンスを設定
+   * @param controller コントローラインスタンス
+   */
+  public void SetController(ILoginController controller)
+  {
+    this.Controller = controller;
+  }
+
+  /**
+   * リスナ対象追加
+   * @param listener 追加対象リスナインスタンス
+   */
+  public void AddListener(LoginViewListener listener)
+  {
+    this.ListenerList.add(LoginViewListener.class, listener);
+  }
+
+  /**
+   * リスナ対象削除
+   * @param listener 削除対象リスナインスタンス
+   */
+  public void RemoveListener(LoginViewListener listener)
+  {
+    this.ListenerList.remove(LoginViewListener.class, listener);
+  }
+
+  /**
+   * ログインボタンクリック時の処理
+   */
   private void LoginButtonClicked()
   {
-    String userNameTextField = this.userNameTextField.getText();
-    String passwordTextField = new String(this.passwordTextField.getPassword());
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "ログインボタンが押下された。"); });
+    String userNameTextField = this.UserNameTextField.getText();
+    String passwordTextField = new String(this.PasswordTextField.getPassword());
     
     // ユーザ名バリデーション処理
-    this.controller.LoginAuth(userNameTextField, passwordTextField);
+    this.Controller.LoginAuth(userNameTextField, passwordTextField);
   }
 
-  // 新規登録ボタンクリック時の処理
+  /**
+   * 新規登録ボタンクリック時の処理
+   */
   private void CreateAccountButtonClicked()
   {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "新規登録ボタンが押下された"); });
     System.out.println("新規アカウント作成ボタンが押下された");
 
-    // TODO: 親画面に対して子画面から表示状態を指示するのは違和感を感じる（コールバックやイベントハンドラに修正を検討）
-    this.BaseViewInstance.ChangeView(LoginBaseView.ViewType.SignupView);
+    for (LoginViewListener listener : this.ListenerList.getListeners(LoginViewListener.class))
+    {
+      // 新規登録ボタン押下を通知
+      listener.CreateAccountButtonClicked();
+    }
   }
 
-  // 新規登録ボタンクリック時の処理
+  /**
+   * パスワード忘却者へボタンクリック時の処理
+   */
   private void LostPassUserButtonClicked()
   {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "パスワード忘却者ボタンが押下された"); });
     System.out.println("パスワード忘却者へボタンが押下された");
 
-    // TODO: 親画面に対して子画面から表示状態を指示するのは違和感を感じる（コールバックやイベントハンドラに修正を検討）
-    this.BaseViewInstance.ChangeView(LoginBaseView.ViewType.LostPassUserView);
+    for (LoginViewListener listener : this.ListenerList.getListeners(LoginViewListener.class))
+    {
+      // パスワード忘却者へボタン押下を通知
+      listener.LostPassUserButtonClicked();
+    }
   }
 
-  // ログイン失敗ダイアログ表示
+  /**
+   * ログイン失敗ダイアログ表示
+   */
   public void LoginFailure()
   {
-    JDialog dialog = new JDialog(this.MainWindowViewInstance, Constants.LOGIN_FAILURE_DIALOG, true);
-    dialog.setSize(250,150);
-    dialog.setLayout(null);
-    JLabel operationLabel = new JLabel(Constants.LOGIN_FAILURE_OPERATION);
-    operationLabel.setBounds(20,20,100,70);
-    dialog.add(operationLabel);
-    dialog.setLocationRelativeTo(null);
-    dialog.setVisible(true);
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "ログイン失敗ダイアログ表示"); });
+    this.CommonDialogView.Show(CommonDialogType.LoginFailureDialog, true);
   }
 
-  public void TransitionAfterLoginView(String userId)
+  /**
+   * ログイン後画面に遷移
+   */
+  public void TransitionAfterLoginView(UserData userData)
   {
-    this.BaseViewInstance.TarnationAfterLoginView(userId);
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "ログイン成功を指示" + "（ログインID：" + userData.UserId + "）"); });
+    
+    for (LoginViewListener listener : this.ListenerList.getListeners(LoginViewListener.class))
+    {
+      // ログイン成功を通知
+      listener.SuccessfulPasswordLogin(userData);
+    }
+  }
+
+  /**
+   * リマインダーダイアログを表示
+   */
+  public void ReminderDialogView(List<ArrayList<String>> reminderList, UserData loginedUserData)
+  {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リマインダーダイアログ表示"); });
+    this.LoginedUserData = loginedUserData;
+    this.ReminderDialogView.Show(reminderList, true);
+  }
+  
+  /**
+   * リマインダーリスト画面のOKボタン押下イベント
+   * ログイン時に全面に表示されるタスク一覧画面
+   */
+  public void ReminderOKButtonClicked()
+  {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リマインダーダイアログでOKボタンが押下された"); });
+    this.TransitionAfterLoginView(this.LoginedUserData);
   }
 
   /**
@@ -214,10 +343,36 @@ public class LoginView extends JPanelViewBase implements ActionListener
    */
   public void ElementDisabled(boolean isDisabled)
   {
-      this.userNameTextField.setEnabled(!isDisabled);
-      this.passwordTextField.setEnabled(!isDisabled);
-      this.loginButton.setEnabled(!isDisabled);
+      this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面要素押下可否設定" + "(" + String.valueOf(isDisabled) + ")"); });
+      this.UserNameTextField.setEnabled(!isDisabled);
+      this.PasswordTextField.setEnabled(!isDisabled);
+      this.LoginButton.setEnabled(!isDisabled);
       this.LostPassUserButton.setEnabled(!isDisabled);
-      this.createAccountButton.setEnabled(!isDisabled);
+      this.CreateAccountButton.setEnabled(!isDisabled);
+  }
+
+  /**
+   * ユーザ名とパスワードの入力内容監視
+   * @param isDisabled ログインボタンの押下可否
+  */
+  public void LoginButtonDisabled(boolean isDisabled)
+  {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "ログインボタン押下可否設定" + "(" + String.valueOf(!isDisabled) + ")"); });
+    this.LoginButton.setEnabled(!isDisabled);
+  }
+  
+  /**
+   * ユーザ名とパスワードの入力内容監視
+   * @param e ユーザ名とパスワードのインスタンス情報
+  */
+  private void ChangedTextField(DocumentEvent e){
+    if(e.getDocument() == this.UserNameTextField.getDocument())
+    {
+      this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "ユーザ名の入力内容が変更されました"); });
+    }
+    else if(e.getDocument() == this.PasswordTextField.getDocument()){
+      this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "パスワードの入力内容が変更されました"); });
+    }
+    this.Controller.ChangedTextField(this.UserNameTextField.getText(), new String(this.PasswordTextField.getPassword()));
   }
 }

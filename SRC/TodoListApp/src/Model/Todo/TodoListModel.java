@@ -1,27 +1,32 @@
 package Model.Todo;
 
+import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
 
 import Entity.Pair;
+import Entity.UserData;
 import Entity.UserList;
-import Model.Logger;
-import Model.Process.Login.LoginProcess.ResultType;
-import Model.Process.Todo.TodoProcess;
+
+import Interface.Model.ILogger;
+import Interface.Model.IValidationUtil;
+import Interface.Model.Process.Todo.ITodoProcess;
+import Interface.Model.Process.Todo.ITodoProcess.ResultType;
+import Interface.Model.Todo.ITodoListModel;
+import Entity.UserTask;
+import Entity.DB.InputTask;
 
 /**
  * TodoList画面モデルクラス
  */
-public class TodoListModel
+public class TodoListModel extends TodoBaseModel implements ITodoListModel
 {
-    /** Todoリスト処理インスタンス */
-    private TodoProcess Process;
 
-    /** ロガーインスタンス */
-    private Logger Logger;
+    /** 選択中リストのタスク */
+    private List<UserTask> Task;
 
-    /** ログインユーザーID */
-    private String UserID;
+    /** 選択中リストID */
+    private int ListId;
 
     /**
      * コンストラクタ
@@ -30,41 +35,136 @@ public class TodoListModel
      * @param todoProcess Todo処理インスタンス
      * @param ログイン中のユーザID
      */
-    public TodoListModel(Logger logger, TodoProcess todoProcess, String userID)
+    public TodoListModel(ILogger logger, ITodoProcess todoProcess, UserData userData, IValidationUtil util)
     {
         this.Process = todoProcess;
         this.Logger = logger;
-        this.UserID = userID;
+        this.UserData = userData;
+        this.Util = util;
     }
 
     /**
-     * ユーザリスト取得
+     * ユーザータスク登録
+     * @param TaskText
+     * @param StartDate
+     * @param EndDate
      * @param isBusyChanged 処理中イベントコールバック
      * @param finished 処理完了コールバック
      */
-    public void GetUserList(Consumer<Boolean> isBusyChanged, Consumer<Pair<TodoProcess.ResultType, List<UserList>>> finished)
+    public void CreateUserTask(String taskText, Date startDate, Date endDate, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
     {
-        this.Process.GetUserList(this.UserID, (isBusy) ->
+        int getLength = this.Util.GetStringLength(taskText);
+        if (getLength > 0 && getLength < 40)
+        {
+
+            this.Process.CreateUserTask(
+                taskText,
+                this.Util.IsOriginDate(startDate) ? null : startDate,//初期値と同じであれば、nullにする
+                this.Util.IsOriginDate(endDate) ? null : endDate,//初期値と同じであれば、nullにする
+                this.ListId,
+                this.UserData.UserId,
+                (isBusy) ->
+            {
+                isBusyChanged.accept(isBusy);
+            }, (result) -> {
+                finished.accept(result);
+            });
+        }
+        else
+        {
+            finished.accept(ITodoProcess.ResultType.ValidateError);
+        }
+    }
+
+    /**
+     * タスク取得メソッド
+     * @param listId 選択中ID
+     */
+    public void GetUserTask(int listId, Consumer<Boolean> isBusyChanged, Consumer<Pair<ITodoProcess.ResultType, List<UserTask>>> finished)
+    {
+        this.Process.GetUserTask(this.UserData.UserId, listId, (isBusy) ->
         {
             isBusyChanged.accept(isBusy);
         }, (result) -> {
+            // タスク編集メソッド等に使いまわしするために保存
+            this.ListId = listId;
+            this.Task = result.Value2;
             finished.accept(result);
-            System.out.println(result);
         });
     }
 
     /**
-     * ユーザリスト登録
+     * タスク取得メソッド
+     * ※タスク削除時に呼び出される用
+     */
+    public void GetUserTask(Consumer<Boolean> isBusyChanged, Consumer<Pair<ITodoProcess.ResultType, List<UserTask>>> finished)
+    {
+        this.GetUserTask(this.ListId, isBusyChanged, finished);
+    }
+
+    /**
+     * タスク編集
+     * @param taskId 画面の選択中タスクID
+     * @param taskText 画面の選択中タスクテキスト
      * @param isBusyChanged 処理中イベントコールバック
      * @param finished 処理完了コールバック
      */
-    public void CreateUserList(Consumer<Boolean> isBusyChanged, Consumer<TodoProcess.ResultType> finished, String listText)
+    public void UpdateTask(int taskId, String taskText, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
     {
-        this.Process.CreateUserList(listText, this.UserID, (isBusy) ->
+        this.Process.UpdateTask(taskId, taskText, this.UserData.UserId, (isBusy) -> {
+            isBusyChanged.accept(isBusy);
+        }, (result) -> {
+            finished.accept(result);
+        });
+    }
+
+    /**
+     * タスク編集（タスク進捗度＋完了/未完了）
+     * @param taskId 画面の選択中タスクID
+     * @param isChecked 画面の選択中タスクの状態
+     * @param isBusyChanged 処理中イベントコールバック
+     * @param finished 処理完了コールバック
+     */
+    public void UpdateTask(int taskId, boolean isChecked, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
+    {
+        this.Process.UpdateTask(taskId, isChecked ? 100 : 0, this.UserData.UserId, (isBusy) -> {
+            isBusyChanged.accept(isBusy);
+        }, (result) -> {
+            finished.accept(result);
+        });
+    }
+
+    /**
+     * 期日編集メソッド
+     * @param taskId
+     * @param startDate
+     * @param endDate
+     * @param isBusyChanged
+     * @param finished
+     */
+    public void EditPeriodDate(int taskId, Date startDate, Date endDate, Consumer<Boolean>isBusyChanged, Consumer<ResultType> finished)
+    {
+        this.Process.EditPeriodDate(taskId, startDate, endDate, this.UserData.UserId, (isBusy) -> {
+            isBusyChanged.accept(isBusy);
+        }, (result) -> {
+            finished.accept(result);
+        });
+    }
+
+    /**
+     * ユーザタスク削除
+     * @param taskId 画面の選択中タスクID
+     * @param isBusyChanged 処理中イベントコールバック
+     * @param finished 処理完了コールバック
+     */
+    public void DeleteTask(int taskId, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
+    {
+        this.Process.DeleteTask(taskId, this.UserData.UserId, (isBusy) ->
         {
             isBusyChanged.accept(isBusy);
         }, (result) -> {
             finished.accept(result);
         });
     }
+
 }

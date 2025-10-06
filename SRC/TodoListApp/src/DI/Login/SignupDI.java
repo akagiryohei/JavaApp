@@ -1,5 +1,7 @@
 package DI.Login;
 
-public class SignupDI {
+import Interface.DI.Login.ISignupDI;
+
+public class SignupDI implements ISignupDI {
     
 }

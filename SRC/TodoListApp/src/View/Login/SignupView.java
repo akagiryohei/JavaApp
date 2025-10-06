@@ -1,42 +1,67 @@
 package View.Login;
 
 import javax.swing.*;
+import javax.swing.event.EventListenerList;
 
+import Controller.Login.SignupController;
+import Entity.Dialog.Constants;
+import Entity.Enum.LogLevel;
+import Interface.Controller.Login.ISignupController;
+import Interface.View.IMainWindowView;
+import Interface.View.Login.ISignupView;
 import View.JPanelViewBase;
+import View.Dialog.CommonDialogView;
+import View.Dialog.CommonDialogView.CommonDialogType;
+import View.Login.Listener.SignupViewListener;
 
 import java.awt.*;
 import java.awt.event.*;
 
+import java.util.List;
+
 // 新規登録Viewクラス
-public class SignupView extends JPanelViewBase implements ActionListener
+public class SignupView extends JPanelViewBase implements ISignupView, ActionListener
 {
   // ユーザ名テキストフィールドのインスタンス
-  private JTextField userNameTextField;
+  private JTextField UserNameTextField;
 
   // パスワード文字列テキストフィールドのインスタンス
-  private JPasswordField passwordTextField;
+  private JPasswordField PasswordTextField;
 
   // 登録ボタンのインスタンス
-  private JButton signUpButton;
+  private JButton SignUpButton;
 
   // ヒント内容のコンボボックスの設定
-  private JComboBox secretTipsBox;
+  private JComboBox SecretTipsBox;
 
   // 秘密のパスワード文字列テキストフィールドのインスタンス
-  private JTextField secretPasswordField;
+  private JTextField SecretPasswordField;
+
+  // 最後の選択した秘密のパスワードの入力文字列
+  private String LastInputSecretPassword;
 
   // キャンセルボタンのインスタンス
-  private JButton cancelButton;
+  private JButton CancelButton;
 
-  // 親画面のインスタンス
-  private LoginBaseView BaseViewInstance;
+  // 新規登録画面コントローラー
+  private ISignupController Controller;
 
-  // コンストラクタ
-  // baseViewInstance : 親画面のインスタンス
-  public SignupView(LoginBaseView baseViewInstance)
+  // イベントリスナインスタンス
+  protected EventListenerList ListenerList;
+
+  // 共通ダイアログのインスタンス
+  private CommonDialogView CommonDialogView;
+
+  /**
+   * コンストラクタ
+   */
+  public SignupView(IMainWindowView mainWindowView, CommonDialogView commonDialogView)
   {
-    // TODO : 親画面のインスタンスをView層で直接持つのは検討の余地あり
-    this.BaseViewInstance = baseViewInstance;
+    // イベントリスナインスタンスを初期化
+    this.ListenerList = new EventListenerList();
+
+    // ダイアログインスタンスを初期化
+    this.CommonDialogView = commonDialogView;
     
     // 一番親のLoginViewにかかってるLayoutマネージャーの向こうかが可能になる
     this.setLayout(null);
@@ -51,7 +76,7 @@ public class SignupView extends JPanelViewBase implements ActionListener
     this.add(guidanceLabel);
 
     // ユーザ名入力欄の設定
-    JLabel userLabel = new JLabel("ユーザ名(メールアドレス)");
+    JLabel userLabel = new JLabel("<html><body><center>ユーザ名<br />(メールアドレス)</center></html></body>");
     userLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
     userLabel.setBounds(300,176,200,66);
     userLabel.setVerticalAlignment(JLabel.CENTER); //垂直位置
@@ -60,10 +85,10 @@ public class SignupView extends JPanelViewBase implements ActionListener
     userLabel.setBackground(Color.CYAN);
     this.add(userLabel);
 
-    this.userNameTextField = new JTextField();
-    userNameTextField.setBounds(500,176,200,66);
-    this.userNameTextField.setColumns(1);
-    this.add(this.userNameTextField);
+    this.UserNameTextField = new JTextField();
+    this.UserNameTextField.setBounds(500,176,200,66);
+    this.UserNameTextField.setColumns(1);
+    this.add(this.UserNameTextField);
 
     // パスワード入力欄の設定
     JLabel passwordLabel = new JLabel("パスワード");
@@ -75,11 +100,11 @@ public class SignupView extends JPanelViewBase implements ActionListener
     passwordLabel.setBackground(Color.CYAN);
     this.add(passwordLabel);
 
-    this.passwordTextField = new JPasswordField();
-    this.passwordTextField.setPreferredSize(new Dimension(20, 20));
-    passwordTextField.setBounds(500,264,200,66);
-    this.passwordTextField.setColumns(1);
-    this.add(this.passwordTextField);
+    this.PasswordTextField = new JPasswordField();
+    this.PasswordTextField.setPreferredSize(new Dimension(20, 20));
+    this.PasswordTextField.setBounds(500,264,200,66);
+    this.PasswordTextField.setColumns(1);
+    this.add(this.PasswordTextField);
 
     // パスワードの注意書きラベルの設定
     JLabel passwordAttentionLabel = new JLabel("※文字数8文字以上半角英数字のみ");
@@ -99,54 +124,99 @@ public class SignupView extends JPanelViewBase implements ActionListener
     this.add(secretPasswordLabel);
 
     // ヒント内容のコンボボックスの設定
-    // JComboBox secretTipsBox = new JComboBox({"学校","恋人","トラウマ"});
-    String[] secretTip = {"未選択","学校","恋人","トラウマ"};
-    this.secretTipsBox = new JComboBox(secretTip);
-    this.secretTipsBox.setBounds(500,374,200,22);
-    this.secretTipsBox.setActionCommand("SecretTipsBox");
-    this.add(this.secretTipsBox);
+    this.SecretTipsBox = new JComboBox();
+    this.SecretTipsBox.setBounds(500,374,200,22);
+    this.SecretTipsBox.setActionCommand("SecretTipsBox");
+    this.add(this.SecretTipsBox);
 
     // 秘密のパスワード入力欄の設定
-    this.secretPasswordField = new JTextField();
-    this.secretPasswordField.setBounds(500,418,200,22);
-    this.secretPasswordField.setColumns(1);
-    this.add(this.secretPasswordField);
+    this.SecretPasswordField = new JTextField();
+    this.SecretPasswordField.setBounds(500,418,200,22);
+    this.SecretPasswordField.setColumns(1);
+    this.LastInputSecretPassword = "";
+    this.add(this.SecretPasswordField);
 
     // 登録ボタンの設定
-    this.signUpButton = new JButton("登録");
-    this.signUpButton.setActionCommand("SignUpButton");
-    this.signUpButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-    this.signUpButton.setBounds(300,462,200,44);
-    this.add(this.signUpButton);
+    this.SignUpButton = new JButton("登録");
+    this.SignUpButton.setActionCommand("SignUpButton");
+    this.SignUpButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+    this.SignUpButton.setBounds(300,462,200,44);
+    this.add(this.SignUpButton);
 
     // キャンセルボタンを設定
-    this.cancelButton = new JButton("キャンセル");
-    this.cancelButton.setActionCommand("CancelButton");
-    this.cancelButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-    this.cancelButton.setBounds(500,462,200,44);
-    this.add(this.cancelButton);
+    this.CancelButton = new JButton("キャンセル");
+    this.CancelButton.setActionCommand("CancelButton");
+    this.CancelButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+    this.CancelButton.setBounds(500,462,200,44);
+    this.add(this.CancelButton);
   }
 
   public void Show()
   {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面オープン"); });
+
     // ボタン押下イベントのリスナーを登録する
-    this.cancelButton.addActionListener(this);
+    this.CancelButton.addActionListener(this);
+    this.SignUpButton.addActionListener(this);
+    this.SecretTipsBox.addActionListener(this);
+    this.LastInputSecretPassword = "";
+    this.Controller.GetSecretTipsList();
   }
 
   public void Hide()
   {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面クローズ"); });
+
     // ボタン押下イベントのリスナーを解除する
-    this.cancelButton.removeActionListener(this);
+    this.CancelButton.removeActionListener(this);
+    this.SignUpButton.removeActionListener(this);
+    this.SecretTipsBox.removeActionListener(this);
   }
 
-  // ボタンからのアクションリスナー
+  /**
+   * コントローラインスタンスを設定
+   * @param controller コントローラインスタンス
+   */
+  public void SetController(ISignupController controller)
+  {
+    this.Controller = controller;
+  }
+
+  /**
+   * リスナ対象追加
+   * @param listener 追加対象リスナインスタンス
+   */
+  public void AddListener(SignupViewListener listener)
+  {
+    this.ListenerList.add(SignupViewListener.class, listener);
+  }
+
+  /**
+   * リスナ対象削除
+   * @param listener 削除対象リスナインスタンス
+   */
+  public void RemoveListener(SignupViewListener listener)
+  {
+    this.ListenerList.remove(SignupViewListener.class, listener);
+  }
+
+  /**
+   * ボタンからのアクションリスナー
+   */
   public void actionPerformed(ActionEvent e)
   {
     switch (e.getActionCommand())
     {
+      case "SignUpButton":
+        // 登録ボタン押下イベントを受信
+        this.SignupButtonClicked();
+      break;
       case "CancelButton":
         // キャンセルボタン押下イベントを受信
         this.CancelButtonClicked();
+        break;
+      case "SecretTipsBox":
+        this.SecretTipsBoxChanged();
         break;
       default:
         // ロジック上あり得ない
@@ -154,12 +224,113 @@ public class SignupView extends JPanelViewBase implements ActionListener
     }
   }
 
-  // キャンセルボタン押下時の処理
+  /**
+   * 秘密のパスワードの選択リストが変更されたとき
+   */
+  private void SecretTipsBoxChanged()
+  {
+    String changedValue = (String) this.SecretTipsBox.getSelectedItem();
+    if(this.LastInputSecretPassword != changedValue)
+    {
+      this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "秘密のパスワードの選択リストが変更された"); });
+      this.SecretPasswordField.setText("");
+      this.LastInputSecretPassword = changedValue;
+    }
+  }
+
+  // ログインボタンクリック時の処理
+  private void SignupButtonClicked()
+  {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "新規登録ボタンが押下された"); });
+
+    String userNameTextField = this.UserNameTextField.getText();
+    String passwordTextField = new String(this.PasswordTextField.getPassword());
+    String secretTipsBox = Integer.toString(this.SecretTipsBox.getSelectedIndex());
+    String secretPasswordField = this.SecretPasswordField.getText();
+    
+    // ユーザ名バリデーション処理
+    this.Controller.SignupAuth(userNameTextField, passwordTextField, secretTipsBox, secretPasswordField);
+  }
+
+  /**
+   * キャンセルボタン押下時の処理
+   */
   private void CancelButtonClicked()
   {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "キャンセルボタンが押下された"); });
     System.out.println("新規アカウント作成ボタンが押下された");
+    
+    this.SuccessfulSignupOrCloseButtonClicked();
+  }
 
-    // TODO: 親画面に対して子画面から表示状態を指示するのは違和感を感じる（コールバックやイベントハンドラに修正を検討）
-    this.BaseViewInstance.ChangeView(LoginBaseView.ViewType.LoginView);
+  /**
+   * リスナに対して画面クローズを指示
+   */
+  private void SuccessfulSignupOrCloseButtonClicked()
+  {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "サインアップ成功またはキャンセルボタン押下を通知"); });
+
+    for (SignupViewListener listener : this.ListenerList.getListeners(SignupViewListener.class))
+    {
+      // 画面クローズを通知
+      listener.SuccessfulSignupOrCloseButtonClicked();
+    }
+  }
+
+  // ヒント内容のコンボボックスに要素を追加
+  public void SetSecretTipsList(List<String> secretTipsList)
+  {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "ヒント内容をコンボボックスに設定"); });
+
+    this.SecretTipsBox.addItem("未選択");
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "コンボボックスに「" + "未選択" + "」を設定"); });
+    for (String item : secretTipsList)
+    {
+      this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "コンボボックスに「" + item + "」を設定"); });
+      this.SecretTipsBox.addItem(item);
+    }
+  }
+
+  // 秘密の質問一覧取得失敗ダイアログ表示
+  public void GetSecretTipsListFailure()
+  {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "秘密の質問一覧取得失敗ダイアログ表示"); });
+    this.CommonDialogView.Show(CommonDialogType.DBConnectionFailureDialog, true);
+  }
+
+  // 新規アカウント登録失敗ダイアログ表示
+  public void SignupFailure()
+  {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "新規アカウント登録失敗ダイアログ表示"); });
+    this.CommonDialogView.Show(CommonDialogType.SiginuPFailureDialog, true);
+  }
+
+  /**
+   * Controllerで渡す：isBusyで使う。
+   * @param isDisp
+   */
+  public void ElementDisabled(boolean isDisabled)
+  {
+      this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面要素押下可否設定" + "(" + String.valueOf(isDisabled) + ")"); });
+      this.UserNameTextField.setEnabled(!isDisabled);
+      this.PasswordTextField.setEnabled(!isDisabled);
+      this.SecretTipsBox.setEnabled(!isDisabled);
+      this.SecretPasswordField.setEnabled(!isDisabled);
+      this.SignUpButton.setEnabled(!isDisabled);
+      this.CancelButton.setEnabled(!isDisabled);
+  }
+
+  /**
+   * Controllerで渡す：isBusyで使う。
+   */
+  public void CancelButtonOnlyEnabled()
+  {
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "キャンセルボタンのみ押下可能に設定"); });
+    this.UserNameTextField.setEnabled(false);
+    this.PasswordTextField.setEnabled(false);
+    this.SecretTipsBox.setEnabled(false);
+    this.SecretPasswordField.setEnabled(false);
+    this.SignUpButton.setEnabled(false);
+    this.CancelButton.setEnabled(true);
   }
 }

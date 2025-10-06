@@ -4,6 +4,8 @@ package Entity.DB;
  * ユーザー登録データ型クラス
  */
 public class User {
+    // ユーザID（ユニーク）
+    public String Id;
     // メールアドレス
     public String Email;
     // パスワード
@@ -15,6 +17,7 @@ public class User {
     
     public User()
     {
+        this.Id = "";
         this.Email = "";
         this.Password = "";
         this.SecretTipsId = "";

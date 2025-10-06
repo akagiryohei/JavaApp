@@ -3,12 +3,11 @@ package Entity.Enum;
 public enum PropertyKey
 {
     // 列挙
-    DBHostIPAddress("DBHostIPAddress"),
-    DBHostPortNum("DBHostPortNum"),
+    DBConnectionString("DBConnectionString"),
+    DBDriverName("DBDriverName"),
     DBUserName("DBUserName"),
     DBPassword("DBPassword"),
     DBName("DBName"),
-    DBAccessTimeout("DBAccessTimeout"),
     DisplayUpdateInterval("DisplayUpdateInterval"),
     LogRotationSize("LogRotationSize");
 

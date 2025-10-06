@@ -2,6 +2,8 @@ package Model;
 import java.lang.String;
 import java.util.Date;
 import Entity.Enum.LogLevel;
+import Interface.Model.ILogger;
+
 import java.text.SimpleDateFormat;
 import java.io.File;
 import java.io.FileWriter;
@@ -10,9 +12,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-public class Logger 
+public class Logger implements ILogger
 {
   private Date date = new Date();
+  private File unNumberedLogFile;
   private File logFile;
   private long fileSize;
 
@@ -20,19 +23,19 @@ public class Logger
   public Logger(String dir, long logSize)
   {
     SimpleDateFormat formater = new SimpleDateFormat("yyyyMMdd");
-    this.logFile = new File(dir + "\\" + formater.format(date) + "_logfile");
-    File newFile = new File(this.logFile + "_1.log");
+    this.unNumberedLogFile = new File(dir + "\\" + formater.format(date) + "_logfile");
+    File checkFile = new File(this.unNumberedLogFile + "_1.log");
     this.fileSize = logSize;
 
     // logディレクトリが存在しない場合は生成する
-    if (newFile.exists() == false)
+    if (checkFile.exists() == false)
     {
         try
         {
-            // ファイル新規作成
+            // フォルダ新規作成
             File fileDir = new File(dir);
             fileDir.mkdir();
-            newFile.createNewFile();
+            checkFile.createNewFile();
         }
         catch (Exception e)
         {
@@ -54,7 +57,7 @@ public class Logger
 
     try {
         // 書き込み対象のログファイルを精査する
-        logFile = GetLogFileName(logFile, fileSize);
+        SetLogFileName(fileSize);
 
         // 書き込み権限の確認
         if (logFile.exists() == false || !logFile.canWrite()) {
@@ -76,28 +79,27 @@ public class Logger
   }
 
   // 出力ログファイル名取得
-  public File GetLogFileName(File file, long fileSize) throws IOException
+  public void SetLogFileName(long fileSize) throws IOException
   {
       int cnt = 1;
-      File loopFile = new File(file.toString() + "_" + cnt + ".log");
+      File loopFile = new File(unNumberedLogFile.toString() + "_" + cnt + ".log");
 
       // ファイルが存在するまで繰り返す（上限は99とする）
       while (loopFile.exists() == true && cnt <= 99)
       {
-          // ファイルサイズを参照し、指定バイト数(512MB)以上の場合はさらにインクリメントする
+          // ファイルサイズを参照し、指定バイト数以上の場合はさらにインクリメントする
           if (Files.size(loopFile.toPath()) < fileSize)
           {
               break;
           }
           else
           {
-              loopFile = new File(file.toString() + "_" + cnt + ".log");
+              loopFile = new File(unNumberedLogFile.toString() + "_" + cnt + ".log");
           }
           cnt++;
       }
 
-      file = new File(loopFile.toString());
-      return file;
+      logFile = new File(loopFile.toString());
   }
 
   // エラークラスのスタックトレースから関数呼出元を抽出
@@ -107,6 +109,6 @@ public class Logger
     Path currentRelativePath = Paths.get("");
     String relativePath = currentRelativePath.toAbsolutePath().toString();
 
-    return relativePath + "\\" + message[2].getFileName() + " (" + message[2].getLineNumber() + "行目)";
+    return relativePath + File.separator + message[2].getFileName() + " (" + message[2].getLineNumber() + "行目)";
   } 
 }

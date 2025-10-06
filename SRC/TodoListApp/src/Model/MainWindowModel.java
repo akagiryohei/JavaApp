@@ -1,6 +1,8 @@
 package Model;
 
-public class MainWindowModel
+import Interface.Model.IMainWindowModel;
+
+public class MainWindowModel implements IMainWindowModel
 {
   // private Logger;
   // private DBクライアント;

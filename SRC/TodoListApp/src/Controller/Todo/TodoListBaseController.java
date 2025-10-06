@@ -2,28 +2,25 @@ package Controller.Todo;
 
 import Controller.ControllerBase;
 import Entity.Enum.ViewStateEnum;
-import Model.Todo.TodoListBaseModel;
-import View.Todo.TodoListBaseView;
+import Interface.Controller.Todo.ITodoListBaseController;
+import Interface.View.Todo.ITodoListBaseView;
 
 /*
  * Todoリスト全般対応コントローラ
  */
-public class TodoListBaseController extends ControllerBase
+public class TodoListBaseController extends ControllerBase implements ITodoListBaseController
 {
     // 画面表示状態
     private ViewStateEnum ViewState;
 
     // Viewインスタンス
-    private TodoListBaseView View;
+    private ITodoListBaseView View;
 
-    // Modelインスタンス
-    private TodoListBaseModel Model;
 
     // コンストラクタ
-    public TodoListBaseController(TodoListBaseView view, TodoListBaseModel model)
+    public TodoListBaseController(ITodoListBaseView view)
     {
         this.View = view;
-        this.Model = model;
     
         // 画面状態を設定
         this.ViewState = ViewStateEnum.Close;
@@ -49,7 +46,7 @@ public class TodoListBaseController extends ControllerBase
         }
     }
 
-    public TodoListBaseView GetViewInstance()
+    public ITodoListBaseView GetViewInstance()
     {
         return this.View;
     }

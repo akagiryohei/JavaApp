@@ -1,5 +1,7 @@
 package DI.Login;
 
-public class LostPassUserDI {
+import Interface.DI.Login.ILostPassUserDI;
+
+public class LostPassUserDI implements ILostPassUserDI {
     
 }

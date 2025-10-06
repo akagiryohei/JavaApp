@@ -1,12 +1,17 @@
 package Model;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Date;
 import java.util.regex.Pattern;
 
-public class ValidationUtil {
+import Interface.Model.IValidationUtil;
+
+public class ValidationUtil implements IValidationUtil {
     
     private final String emailRegex = "^[a-zA-Z0-9_\\-]+(\\.[a-zA-Z0-9_\\-]+)*@([a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9]\\.)+[a-zA-Z]{2,}$";
     private final String passWordRegex = "^[a-zA-Z0-9]+$";
+    private final Date originDate = new Date(0);
+
     /**
      * コンストラクタ
      */
@@ -46,5 +51,15 @@ public class ValidationUtil {
     public int GetStringLength(String text)
     {
         return text.getBytes(StandardCharsets.UTF_8).length;
+    }
+
+    /**
+     * 引数の日付型オブジェクトがorigin値かどうか
+     * @param date
+     * @return
+     */
+    public boolean IsOriginDate(Date date)
+    {
+        return date.getTime() == originDate.getTime();
     }
 }

@@ -1,6 +1,8 @@
 package Model.Login;
 
-public class LoginBaseModel
+import Interface.Model.Login.ILoginBaseModel;
+
+public class LoginBaseModel implements ILoginBaseModel
 {
   public LoginBaseModel()
   {

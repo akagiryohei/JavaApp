@@ -31,7 +31,12 @@ public class DialogView extends JPanelViewBase implements ActionListener
         TodoGanttchartView,
     }
 
-    //コンストラクタ
+    /**
+     * コストラクタ
+     * @param dialogTitle ダイアログタイトル
+     * @param dialogOperation ダイアログオプション
+     * @param owner 親要素インスタンス
+     */
     public DialogView(String dialogTitle, String dialogOperation, JFrame owner)
     {
         this.Owner = owner;
@@ -44,15 +49,15 @@ public class DialogView extends JPanelViewBase implements ActionListener
     }
     public void Show()
     {
-        //
     }
     public void Hide()
     {
-
     }
+    /**
+     * ボタンからのアクションリスナー
+     */
     public void actionPerformed(ActionEvent e)
     {
-        
     }
 
 }

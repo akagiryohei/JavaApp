@@ -2,13 +2,14 @@ package DI;
 
 import View.*;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 
+import javax.swing.JFrame;
+
+import View.Dialog.CommonDialogView;
 import View.Dialog.DialogView;
 import Controller.*;
 import Model.*;
-
 import View.Login.*;
 import View.Todo.*;
 import Controller.Login.*;
@@ -17,39 +18,62 @@ import Model.Login.*;
 import Model.Todo.*;
 import DI.Login.LoginBaseDI;
 import DI.Todo.TodoListBaseDI;
+import Entity.UserData;
+import Interface.Controller.IMainWindowController;
+import Interface.Controller.Login.ILoginBaseController;
+import Interface.Controller.Todo.ITodoListBaseController;
+import Interface.DI.IMainWindowDI;
+import Interface.Model.IDBClient;
+import Interface.Model.IGetHolidayInfoService;
+import Interface.Model.ILogger;
+import Interface.Model.IMainWindowModel;
+import Interface.Model.Login.ILoginBaseModel;
+import Interface.View.IMainWindowView;
+import Interface.View.Login.ILoginBaseView;
+import Interface.View.Todo.ITodoListBaseView;
 
 // MainWindow画面の依存性注入クラス
-public class MainWindowDI
+public class MainWindowDI implements IMainWindowDI
 {
   // ロガーインスタンス
-  private Logger Logger;
+  private ILogger Logger;
 
   // DBクライアントインスタンス
-  private DBClient DBClient;
+  private IDBClient DBClient;
+
+  // 祝日情報取得サービスインスタンス
+  private IGetHolidayInfoService GetHolidayInfoService;
 
   // DB処理キューインスタンス
   private ExecutorService DBQueue;
 
   // MainWindowViewのインスタンス
-  private MainWindowView MainWindowViewInstance;
+  private IMainWindowView MainWindowViewInstance;
 
   // DialogViewのインスタンス
   private DialogView DialogViewInstance;
 
+  // 共通ダイアログのインスタンス
+  private CommonDialogView CommonDialogViewInstance;
+
   // コンストラクタ
-  public MainWindowDI(Logger logger, DBClient dbClient, ExecutorService dbQueue)
+  public MainWindowDI(ILogger logger, IDBClient dbClient, IGetHolidayInfoService getHolidayInfoService, ExecutorService dbQueue)
   {
     this.Logger = logger;
     this.DBClient = dbClient;
     this.DBQueue = dbQueue;
+    this.GetHolidayInfoService = getHolidayInfoService;
   }
 
   // 依存性注入したMainWindowコントローラオブジェクトを生成する
-  public MainWindowController CreateMainWindowMVC()
+  public IMainWindowController CreateMainWindowMVC()
   {
-    MainWindowModel mainWindowModel = new MainWindowModel();
+    IMainWindowModel mainWindowModel = new MainWindowModel();
     this.MainWindowViewInstance = new MainWindowView(this);
-    MainWindowController mainWindowController = new MainWindowController(this.MainWindowViewInstance, mainWindowModel);
+    IMainWindowController mainWindowController = new MainWindowController(this.MainWindowViewInstance, mainWindowModel);
+
+    // 共通ダイアログのインスタンスを生成
+    this.CommonDialogViewInstance = new CommonDialogView((JFrame)this.MainWindowViewInstance);
 
     return mainWindowController;
   }
@@ -57,16 +81,16 @@ public class MainWindowDI
   /*
    * ログインベース作成
    */
-  public LoginBaseController CreateLoginBaseMVC(MainWindowView mainWindowView)
+  public ILoginBaseController CreateLoginBaseMVC(IMainWindowView mainWindowView)
   {
 
     // 子画面のDIを作成している
-    var loginBaseDi = new LoginBaseDI(this.Logger, this.DBClient, this.DBQueue, mainWindowView);
+    var loginBaseDi = new LoginBaseDI(this.Logger, this.DBClient, this.DBQueue, mainWindowView, this.CommonDialogViewInstance);
 
     // LoginBase とはログイン前画面の操作用の物
-    LoginBaseModel loginBaseModel = new LoginBaseModel();
-    LoginBaseView loginBaseView = new LoginBaseView(loginBaseDi, this.MainWindowViewInstance);
-    LoginBaseController loginBaseController = new LoginBaseController(loginBaseView, loginBaseModel);
+    ILoginBaseModel loginBaseModel = new LoginBaseModel();
+    ILoginBaseView loginBaseView = new LoginBaseView(loginBaseDi);
+    ILoginBaseController loginBaseController = new LoginBaseController(loginBaseView, loginBaseModel);
 
     return loginBaseController;
   }
@@ -74,15 +98,13 @@ public class MainWindowDI
   /*
    * Todoリストベース作成
    */
-  public TodoListBaseController CreateTodoListBaseMVC(MainWindowView mainWindowView, String userID)
+  public ITodoListBaseController CreateTodoListBaseMVC(IMainWindowView mainWindowView, UserData userData)
   {
     // 子要素のDIを作成
-    var todoListBaseDi = new TodoListBaseDI(this.Logger, this.DBClient, this.MainWindowViewInstance, this.DBQueue, userID);
+    var todoListBaseDi = new TodoListBaseDI(this.Logger, this.DBClient, this.GetHolidayInfoService, this.MainWindowViewInstance, this.DBQueue, userData, this.CommonDialogViewInstance);
 
-    
-    TodoListBaseModel todoListBaseModel = new TodoListBaseModel();
-    TodoListBaseView todoListBaseView = new TodoListBaseView(todoListBaseDi, this.MainWindowViewInstance);
-    TodoListBaseController todoListBaseController = new TodoListBaseController(todoListBaseView, todoListBaseModel);
+    ITodoListBaseView todoListBaseView = new TodoListBaseView(todoListBaseDi, this.MainWindowViewInstance);
+    ITodoListBaseController todoListBaseController = new TodoListBaseController(todoListBaseView);
 
     return todoListBaseController;
   }

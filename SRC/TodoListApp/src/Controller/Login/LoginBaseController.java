@@ -2,25 +2,26 @@ package Controller.Login;
 
 import Controller.ControllerBase;
 import Entity.Enum.ViewStateEnum;
-import Model.Login.LoginBaseModel;
-import View.Login.LoginBaseView;
+import Interface.Controller.Login.ILoginBaseController;
+import Interface.Model.Login.ILoginBaseModel;
+import Interface.View.Login.ILoginBaseView;
 
 /*
  * ログイン全般コントローラ
  */
-public class LoginBaseController extends ControllerBase
+public class LoginBaseController extends ControllerBase implements ILoginBaseController
 {
   // 画面表示状態
   private ViewStateEnum ViewState;
 
   // Viewインスタンス
-  private LoginBaseView View;
+  private ILoginBaseView View;
 
   // Modelインスタンス
-  private LoginBaseModel Model;
+  private ILoginBaseModel Model;
 
   // コンストラクタ
-  public LoginBaseController(LoginBaseView view, LoginBaseModel model)
+  public LoginBaseController(ILoginBaseView view, ILoginBaseModel model)
   {
     this.View = view;
     this.Model = model;
@@ -49,7 +50,7 @@ public class LoginBaseController extends ControllerBase
     }
   }
 
-  public LoginBaseView GetViewInstance()
+  public ILoginBaseView GetViewInstance()
   {
     return this.View;
   }
