@@ -113,4 +113,11 @@ public interface ITodoListModel
      * @return ログイン中のユーザ名
      */
     public String GetUserName();
+
+    /**
+     * ＋ボタン押下可否判定
+     * @param taskText タスク入力欄の文字列
+     */
+    public Boolean GetPlusButtonPossibility(String taskText);
+
 }

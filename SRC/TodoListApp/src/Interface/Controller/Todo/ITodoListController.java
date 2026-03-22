@@ -2,6 +2,7 @@ package Interface.Controller.Todo;
 
 import java.util.Date;
 
+import Interface.Model.ILogger;
 import Interface.View.Todo.ITodoListView;
 
 /*
@@ -90,4 +91,17 @@ public interface ITodoListController
      * タスク削除メソッド
      */
     public void DeleteTask(int taskId);
+
+    /**
+     * 入力欄のイベント情報の変化が発生した
+     * @param taskText タスク入力欄の文字列
+     */
+    public void ChangeTextField(String taskText);
+
+    /**
+    * ロガーインスタンスを依存性注入する
+    * @param ロガーインスタンス
+    */
+    public void SetLogger(ILogger logger);
+
 }

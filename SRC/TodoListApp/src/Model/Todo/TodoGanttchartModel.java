@@ -5,7 +5,6 @@ import Interface.Model.Process.Todo.ITodoProcess;
 import Interface.Model.Process.Todo.ITodoProcess.ResultType;
 import Interface.Model.Todo.ITodoGanttchartModel;
 
-import java.text.DateFormat;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -18,18 +17,15 @@ import Entity.GanttchartTask;
 import Entity.Pair;
 import Entity.UserData;
 import Entity.UserTask;
+import Entity.Enum.LogLevel;
 import Interface.Model.IValidationUtil;
 
 
 
 public class TodoGanttchartModel extends TodoBaseModel implements ITodoGanttchartModel
 {
-    /** 選択中リストのタスク */
-    private List<GanttchartTask> Task;
-
-    /** 選択中リストID */
-    private int ListId;
-
+    /** 日付フォーマット */
+    private final DateTimeFormatter DateFormat = DateTimeFormatter.ofPattern("yyyy年MM月dd日");
     /**
      * コンストラクタ
      * 依存性注入
@@ -53,50 +49,57 @@ public class TodoGanttchartModel extends TodoBaseModel implements ITodoGanttchar
         {
             isBusyChanged.accept(isBusy);
         }, (result) -> {
-            // タスク編集メソッド等に使いまわしするために保存
-            this.ListId = listId;
-            List<GanttchartTask> taskList = new ArrayList<GanttchartTask>();
-            result.Value2.forEach(item -> {
-                GanttchartTask task = new GanttchartTask();
-                String startDate = item.startDate;
-                LocalDate localDateStart = null;
-                LocalDate localDateEnd = null;
-                if (startDate != null && !startDate.isEmpty()){
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                    try {
-                        localDateStart = LocalDate.parse(startDate, formatter);
-                    } catch (DateTimeException e) {
-                        // 変換に失敗した場合の処理
-                        e.printStackTrace();
-                    }
-                }
-                String endDate = item.endDate;
-                if (endDate != null && !endDate.isEmpty()){
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                    try {
-                        localDateEnd = LocalDate.parse(endDate, formatter);
-                    } catch (DateTimeException e) {
-                        // 変換に失敗した場合の処理
-                        e.printStackTrace();
-                    }
-                }
-                if (
-                    (localDateStart == null || localDateEnd == null) || this.IsYearMonthWithinPeriod(activeYearMonth, localDateStart, localDateEnd))
-                {
-                    task.TaskID = item.id;
-                    task.ListID = item.list_id;
-                    task.TaskName = item.taskText;
-                    task.StartDate = localDateStart;
-                    task.EndDate = localDateEnd;
-                    task.ProgressRate = item.progressRate;
-                    taskList.add(task.Clone());
-                }
-            });
-            Pair<ITodoProcess.ResultType, List<GanttchartTask>> resultPair = new Pair<>(result.Value1, taskList);
+            Pair<ITodoProcess.ResultType, List<GanttchartTask>> resultPair = new Pair<>(result.Value1, this.PrepareGanttTasks(result.Value2, activeYearMonth));
 
-            this.Task = taskList;// これを直す予定todo
             finished.accept(resultPair);
         });
+    }
+
+    /**
+     * タスク加工用メソッド（共通処理）
+     */
+    public List<GanttchartTask> PrepareGanttTasks(List<UserTask> userTasks, YearMonth activeYearMonth)
+    {
+        // タスク編集メソッド等に使いまわしするために保存
+        List<GanttchartTask> taskList = new ArrayList<GanttchartTask>();
+        userTasks.forEach(item -> {
+            GanttchartTask task = new GanttchartTask();
+            String startDate = item.startDate;
+            LocalDate localDateStart = null;
+            LocalDate localDateEnd = null;
+            if (startDate != null && !startDate.isEmpty()){
+                try {
+                    localDateStart = LocalDate.parse(startDate, this.DateFormat);
+                } catch (DateTimeException e) {
+                    // 変換に失敗した場合の処理
+                    e.printStackTrace();
+                    this.Logger.WriteLog(LogLevel.Exception, "開始日の変換に失敗した：" + startDate);
+                }
+            }
+            String endDate = item.endDate;
+            if (endDate != null && !endDate.isEmpty()){
+                try {
+                    localDateEnd = LocalDate.parse(endDate, this.DateFormat);
+                } catch (DateTimeException e) {
+                    // 変換に失敗した場合の処理
+                    e.printStackTrace();
+                    this.Logger.WriteLog(LogLevel.Exception, "終了日の変換に失敗した：" + endDate);
+                }
+            }
+            // 選択月とタスクの期間が重なってるか or （タスクの開始日or終了日）がnullの場合は表示対象とする
+            if (
+                (localDateStart == null || localDateEnd == null) || this.IsYearMonthWithinPeriod(activeYearMonth, localDateStart, localDateEnd))
+            {
+                task.TaskID = item.id;
+                task.ListID = item.list_id;
+                task.TaskName = item.taskText;
+                task.StartDate = localDateStart;
+                task.EndDate = localDateEnd;
+                task.ProgressRate = item.progressRate;
+                taskList.add(task.Clone());
+            }
+        });
+        return taskList;
     }
 
     /**

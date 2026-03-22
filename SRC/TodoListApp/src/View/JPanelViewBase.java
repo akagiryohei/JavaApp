@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 
 import javax.swing.*;
 
+import Entity.Enum.LogLevel;
 import Interface.Model.ILogger;
 
 public abstract class JPanelViewBase extends JPanel
@@ -43,6 +44,30 @@ public abstract class JPanelViewBase extends JPanel
     this.Logger = logger;
   }
 
+  /**
+   * 画面内に登場する全フィールド変数のコンポーネントに対して変数名で名前をセットする
+   */
+  protected void SetFieldNamesToComponents()
+  {
+    for (var field : this.getClass().getDeclaredFields())
+    {
+        try
+        {
+          field.setAccessible(true);
+          Object value = field.get(this);
+
+          if (value instanceof JComponent)
+          {
+              ((JComponent) value).setName(field.getName());
+          }
+        }
+        catch (SecurityException | IllegalAccessException | IllegalArgumentException e)
+        {
+          this.WithLogger(logger -> logger.WriteLog(LogLevel.Exception, "フィールド名設定中に例外発生: " + e.getClass().getSimpleName() + " - " + e.getMessage()));
+        }
+    }
+  }
+  
   /**
     * コンポーネント座標を取得する
     * @param 取得対象コンポーネントオブジェクト

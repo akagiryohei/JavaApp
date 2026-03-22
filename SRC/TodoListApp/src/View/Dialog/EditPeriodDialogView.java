@@ -4,9 +4,13 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowFocusListener;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
+import java.time.Instant;
 import java.util.Date;
 
 import javax.swing.JButton;
@@ -18,24 +22,20 @@ import javax.swing.event.EventListenerList;
 import Entity.Dialog.Constants;
 import View.Dialog.Listener.DatePickerListener;
 import View.Dialog.Listener.EditPeriodDialogViewListener;
-import View.Dialog.Listener.ReminderDialogViewListener;
 
 
-public class EditPeriodDialogView extends JDialog implements ActionListener, MouseListener, DatePickerListener {
+public class EditPeriodDialogView extends JDialog implements ActionListener, MouseListener, WindowFocusListener, DatePickerListener
+{
+    // 期日のフォーマット
+    private final SimpleDateFormat DateFormat = new SimpleDateFormat("yyyy年MM月dd日");
     /** 指示文言 */
     private JLabel OperationLabel;
-    /** 開始日 */
-    private JLabel StartLabel;
-    /** 終了日 */
-    private JLabel EndLabel;
     /** 編集ボタン */
     private JButton EditButton;
     /** 開始日入力欄 */
     private JFormattedTextField StartDateInputField;
     /** 終了日入力欄 */
     private JFormattedTextField EndDateInputField;
-    // 期日のフォーマット
-    private SimpleDateFormat DateFormat;
     // 開始日
     private String StartDate;
     // 終了日
@@ -44,21 +44,36 @@ public class EditPeriodDialogView extends JDialog implements ActionListener, Mou
     protected EventListenerList ListenerList;
     // カレンダーダイアログ
     private DatePickerView DatePickerView;
-    // 選択フラグ
-    private String SelectFlg;
+    // 日付編集状態
+    private EditState EditInputState;
     // 編集モード：true 登録モード:false
     private boolean IsEditMode;
+    /** ダイアログ定数クラス */
+    private Constants Constants;
 
-    public EditPeriodDialogView(DatePickerView datePickerView) {
+
+    // 日付編集状態
+    public enum EditState
+    {
+        // 未編集状態
+        None,
+
+        // 開始日
+        EditingStartDate,
+
+        // 終了日
+        EditingEndDate,
+    };
+
+    public EditPeriodDialogView(DatePickerView datePickerView, Constants constants) {
+        this.Constants = constants;
         this.setSize(400, 256);
         this.setLayout(null);
         this.DatePickerView = datePickerView;
         this.IsEditMode = false;
 
-        // 期日のフォーマットを宣言しておく
-        this.DateFormat = new SimpleDateFormat("yyyy-MM-dd");
         // 指示文言
-        this.OperationLabel = new JLabel(Constants.DATE_EDIT_OPERATION);
+        this.OperationLabel = new JLabel(this.Constants.DATE_EDIT_OPERATION);
         OperationLabel.setBounds(76,10,350,35);
         this.add(OperationLabel);
 
@@ -86,7 +101,6 @@ public class EditPeriodDialogView extends JDialog implements ActionListener, Mou
         this.add(this.EditButton);
         // イベントリスナインスタンスを初期化
         this.ListenerList = new EventListenerList();
-
     }
 
     /**
@@ -116,6 +130,8 @@ public class EditPeriodDialogView extends JDialog implements ActionListener, Mou
         this.StartDateInputField.addMouseListener(this);
         this.EndDateInputField.addMouseListener(this);
         this.DatePickerView.AddListener(this);
+        this.EditInputState = EditState.None;
+        this.addWindowFocusListener(this);
         this.setLocationRelativeTo(null);
         this.setVisible(true);
     }
@@ -126,11 +142,15 @@ public class EditPeriodDialogView extends JDialog implements ActionListener, Mou
     public void Hide() {
         this.EditButton.removeActionListener(this);
         this.EditButton.setText("");
+        this.StartDateInputField.removeMouseListener(this);
+        this.EndDateInputField.removeMouseListener(this);
         this.EditButton.setActionCommand("");
-        this.setVisible(false);
-        this.dispose();
         this.DatePickerView.RemoveListener(this);
         this.DatePickerView.Hide();
+        this.EditInputState = EditState.None;
+        this.removeWindowFocusListener(this);
+        this.setVisible(false);
+        this.dispose();
     }
 
     /**
@@ -165,6 +185,29 @@ public class EditPeriodDialogView extends JDialog implements ActionListener, Mou
             default:
                 break;
         }
+    }
+
+    /**
+     * ダイアログがアクティブウィンドウになった
+     * @param e イベントオブジェクト
+     */
+    public void windowGainedFocus(WindowEvent e)
+    {
+        if (this.EditInputState != EditState.None)
+        {
+            // 本ダイアログにフォーカスが当たったら日付選択ダイアログをクローズする
+            this.DatePickerView.Hide();
+            this.EditInputState = EditState.None;
+        }
+    }
+
+    /**
+     * ダイアログが非アクティブウィンドウになった
+     * @param e イベントオブジェクト
+     */
+    public void windowLostFocus(WindowEvent e)
+    {
+        // 何もしない。
     }
 
     /**
@@ -213,14 +256,39 @@ public class EditPeriodDialogView extends JDialog implements ActionListener, Mou
     @Override
     public void mouseClicked(MouseEvent e) {
         Object source = e.getSource();
-        if (source == this.StartDateInputField) {
-            this.SelectFlg = "Start";
-        } else if (source == this.EndDateInputField) {
-            this.SelectFlg = "End";
-        } else {
+
+        if (this.EditInputState != EditState.None)
+        {
+            // 既にダイアログ表示中の場合は何もしない。
             return;
         }
-        this.DatePickerView.Show(YearMonth.of(2025, 8), this.GetComponentPostion((Component)this.StartDateInputField));
+
+        if (source == this.StartDateInputField)
+        {
+            this.EditInputState = EditState.EditingStartDate;
+        }
+        else if (source == this.EndDateInputField)
+        {
+            this.EditInputState = EditState.EditingEndDate;
+        }
+        else
+        {
+            return;
+        }
+
+        // 表示するYearMonthを決定する：
+        // 1) 入力欄に Date オブジェクトが入っていればその年月を使う
+        // 2) そうでなければ現在の年月を使う
+        YearMonth yearMonth = YearMonth.now();
+        JFormattedTextField targetField = (source == this.StartDateInputField) ? this.StartDateInputField : this.EndDateInputField;
+        Object value = targetField.getValue();
+        if (value instanceof Date) {
+            // java.sql.Date#toInstant() throws UnsupportedOperationException, so convert via epoch millis
+            Instant instant = Instant.ofEpochMilli(((Date) value).getTime());
+            LocalDate localDate = instant.atZone(ZoneId.systemDefault()).toLocalDate();
+            yearMonth = YearMonth.from(localDate);
+        }
+        this.DatePickerView.Show(yearMonth, this.GetComponentPostion((Component)targetField));
     }
 
     @Override
@@ -242,13 +310,23 @@ public class EditPeriodDialogView extends JDialog implements ActionListener, Mou
     @Override
     public void SelectedDate(LocalDate selectedDate) {
         Date date = java.sql.Date.valueOf(selectedDate);
-        if (this.SelectFlg == "Start") {
-            // 開始日入力フィールドに選択日を設定
-            this.StartDateInputField.setValue(date);
-        } else if (this.SelectFlg == "End") {
-            // 終了日入力フィールドに選択日を設定
-            this.EndDateInputField.setValue(date);
+
+        switch (this.EditInputState)
+        {
+            case EditState.EditingStartDate:
+                // 開始日入力フィールドに選択日を設定
+                this.StartDateInputField.setValue(date);
+                break;
+            case EditState.EditingEndDate:
+                // 終了日入力フィールドに選択日を設定
+                this.EndDateInputField.setValue(date);
+                break;
+            default:
+                // 列挙体のためあり得ない。
+                break;
         }
+
         this.DatePickerView.Hide();
+        this.EditInputState = EditState.None;
     }
 }

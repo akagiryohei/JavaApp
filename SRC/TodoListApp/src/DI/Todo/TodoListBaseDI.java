@@ -5,28 +5,36 @@ import View.Dialog.CommonDialogView;
 import View.Dialog.DatePickerView;
 import View.Dialog.EditPeriodDialogView;
 import View.Dialog.EditProgressRateDialogView;
+import View.Dialog.UpdateListDialogView;
+import View.Dialog.UpdateTaskDialogView;
 
 import java.util.concurrent.ExecutorService;
 
-import Controller.*;
+import Entity.Dialog.Constants;
+
 import Model.*;
 import Model.Process.Todo.TodoProcess;
 import View.Todo.*;
 import Controller.Todo.*;
 import Entity.UserData;
+import Interface.Controller.Todo.ITodoAICreateListTaskController;
 import Interface.Controller.Todo.ITodoBoardController;
 import Interface.Controller.Todo.ITodoGanttchartController;
 import Interface.Controller.Todo.ITodoListController;
 import Interface.DI.Todo.ITodoListBaseDI;
 import Interface.Model.IDBClient;
 import Interface.Model.IGetHolidayInfoService;
+import Interface.Model.ILMStudioAPIClient;
 import Interface.Model.ILogger;
 import Interface.Model.IValidationUtil;
 import Interface.Model.Process.Todo.ITodoProcess;
 import Interface.Model.Todo.ITodoBoardModel;
 import Interface.Model.Todo.ITodoGanttchartModel;
+import Interface.Model.Todo.ITodoAICreateListTaskModel;
 import Interface.Model.Todo.ITodoListModel;
 import Interface.View.IMainWindowView;
+import Interface.View.IViewProxyUtil;
+import Interface.View.Todo.ITodoAICreateListTaskView;
 import Interface.View.Todo.ITodoBoardView;
 import Interface.View.Todo.ITodoGanttchartView;
 import Interface.View.Todo.ITodoListBaseView;
@@ -41,6 +49,9 @@ public class TodoListBaseDI implements ITodoListBaseDI
     // DBクライアントインスタンス
     private IDBClient DBClient;
 
+    // AIクライアントインスタンス
+    private ILMStudioAPIClient LMStudioAPIClient;
+
     // 祝日情報取得サービスインスタンス
     private IGetHolidayInfoService GetHolidayInfoService;
 
@@ -50,6 +61,9 @@ public class TodoListBaseDI implements ITodoListBaseDI
     // DB処理キューインスタンス
     private ExecutorService DBQueue;
 
+    // 画面ラップ処理インスタンス
+    private IViewProxyUtil ViewProxyUtil;
+
     // ログインユーザーID
     private UserData UserData;
 
@@ -57,13 +71,15 @@ public class TodoListBaseDI implements ITodoListBaseDI
     private CommonDialogView CommonDialogViewInstance;
 
     // コンストラクタ
-    public TodoListBaseDI(ILogger logger, IDBClient dbClient, IGetHolidayInfoService getHolidayInfoService, IMainWindowView mainWindowViewInstance, ExecutorService dbQueue, UserData userData, CommonDialogView commonDialogView)
+    public TodoListBaseDI(ILogger logger, IDBClient dbClient, ILMStudioAPIClient lMStudioAPIClient, IGetHolidayInfoService getHolidayInfoService, IMainWindowView mainWindowViewInstance, ExecutorService dbQueue, UserData userData, CommonDialogView commonDialogView, IViewProxyUtil viewProxyUtil)
     {
         this.Logger = logger;
         this.DBClient = dbClient;
+        this.LMStudioAPIClient = lMStudioAPIClient;
         this.GetHolidayInfoService = getHolidayInfoService;
         this.MainWindowViewInstance = mainWindowViewInstance;
         this.DBQueue = dbQueue;
+        this.ViewProxyUtil = viewProxyUtil;
         this.UserData = userData;
         this.CommonDialogViewInstance = commonDialogView;
     }
@@ -72,18 +88,23 @@ public class TodoListBaseDI implements ITodoListBaseDI
     public ITodoListController CreateTodoListMVC(ITodoListBaseView todoListBaseView)
     {
         IValidationUtil util = new ValidationUtil();
-        ITodoProcess todoProcess = new TodoProcess(this.DBClient, this.DBQueue);
+        ITodoProcess todoProcess = new TodoProcess(this.DBClient, this.DBQueue, this.LMStudioAPIClient);
         ITodoListModel todoListModel = new TodoListModel(this.Logger, todoProcess, this.UserData, util);
         DatePickerView datePickerView = new DatePickerView();
         this.GetHolidayInfoService.RequestHolidayInfoAsync((holidays) -> {
             datePickerView.SetHolidays(holidays);
         });
-        EditPeriodDialogView editPeriodDialogView = new EditPeriodDialogView(datePickerView);
-        ITodoListView todoListView = new TodoListView(todoListBaseView, this.MainWindowViewInstance, this.CommonDialogViewInstance, editPeriodDialogView);
+        Constants constants = new Constants();
+        EditPeriodDialogView editPeriodDialogView = new EditPeriodDialogView(datePickerView, constants);
+        UpdateListDialogView updateListDialogView = new UpdateListDialogView(constants);
+        UpdateTaskDialogView updateTaskDialogView = new UpdateTaskDialogView(constants);
+        ITodoListView todoListView = new TodoListView(this.CommonDialogViewInstance, editPeriodDialogView, updateListDialogView, updateTaskDialogView);
+        todoListView.SetLogger(this.Logger);
         // TODO: todoListViewの中でリスト・ボード・ガントチャートを中に入れてカードレイアウトで入れ替えるため。
-        ITodoListController todoListController = new TodoListController(todoListView, todoListModel);
+        ITodoListController todoListController = new TodoListController(todoListView, todoListModel, this.ViewProxyUtil);
+        todoListController.SetLogger(this.Logger);
         todoListView.SetController(todoListController);
-        
+
         return todoListController;
     }
 
@@ -91,21 +112,25 @@ public class TodoListBaseDI implements ITodoListBaseDI
     public ITodoBoardController CreateTodoBoardMVC(ITodoListBaseView todoListBaseView)
     {
         IValidationUtil util = new ValidationUtil();
-        ITodoProcess todoProcess = new TodoProcess(this.DBClient, this.DBQueue);
+        ITodoProcess todoProcess = new TodoProcess(this.DBClient, this.DBQueue, this.LMStudioAPIClient);
         // モデルインスタンス作成
         ITodoBoardModel todoBoardModel = new TodoBoardModel(this.Logger, todoProcess, this.UserData, util);
         DatePickerView datePickerView = new DatePickerView();
         this.GetHolidayInfoService.RequestHolidayInfoAsync((holidays) -> {
             datePickerView.SetHolidays(holidays);
         });
-        EditPeriodDialogView editPeriodDialogView = new EditPeriodDialogView(datePickerView);
+        Constants constants = new Constants();
+        UpdateListDialogView updateListDialogView = new UpdateListDialogView(constants);
+        UpdateTaskDialogView updateTaskDialogView = new UpdateTaskDialogView(constants);
         // Viewインスタンス作成
         // TODO: 現行の実装は期日選択ダイアログが共通化されていないが、ここでインスタンス生成する。インスタンス生成時に祝日情報取得サービスクラスから取得した祝日情報をセットする
-        ITodoBoardView todoBoardView = new TodoBoardView(todoListBaseView, this.MainWindowViewInstance, this.CommonDialogViewInstance, editPeriodDialogView);
+        ITodoBoardView todoBoardView = new TodoBoardView(this.CommonDialogViewInstance, updateListDialogView, updateTaskDialogView);
+        todoBoardView.SetLogger(this.Logger);
         // controllerインスタンス作成
-        ITodoBoardController todoBoardController = new TodoBoardController(todoBoardView, todoBoardModel);
+        ITodoBoardController todoBoardController = new TodoBoardController(todoBoardView, todoBoardModel, this.ViewProxyUtil);
+        todoBoardController.SetLogger(this.Logger);
         todoBoardView.SetController(todoBoardController);
-        
+
         return todoBoardController;
     }
 
@@ -113,16 +138,42 @@ public class TodoListBaseDI implements ITodoListBaseDI
     public ITodoGanttchartController CreateGanttchartMVC(ITodoListBaseView todoListBaseView)
     {
         IValidationUtil util = new ValidationUtil();
-        ITodoProcess todoProcess = new TodoProcess(this.DBClient, this.DBQueue);
+        ITodoProcess todoProcess = new TodoProcess(this.DBClient, this.DBQueue, this.LMStudioAPIClient);
         // モデルインスタンス作成
         ITodoGanttchartModel todoGanttchartModel = new TodoGanttchartModel(this.Logger, todoProcess, this.UserData, util);
-        EditProgressRateDialogView editProgressRateDialogView = new EditProgressRateDialogView();
+        Constants constants = new Constants();
+        EditProgressRateDialogView editProgressRateDialogView = new EditProgressRateDialogView(constants);
+        UpdateListDialogView updateListDialogView = new UpdateListDialogView(constants);
         // Viewインスタンス作成
-        ITodoGanttchartView todoGanttchartView = new TodoGanttchartView(todoListBaseView, this.MainWindowViewInstance, this.CommonDialogViewInstance, editProgressRateDialogView);
+        ITodoGanttchartView todoGanttchartView = new TodoGanttchartView(this.CommonDialogViewInstance, editProgressRateDialogView, updateListDialogView);
+        todoGanttchartView.SetLogger(this.Logger);
         // controllerインスタンス作成
-        ITodoGanttchartController todoGanttchartController = new TodoGanttchartController(todoGanttchartView, todoGanttchartModel);
+        ITodoGanttchartController todoGanttchartController = new TodoGanttchartController(todoGanttchartView, todoGanttchartModel, this.ViewProxyUtil);
+        todoGanttchartController.SetLogger(this.Logger);
         todoGanttchartView.SetController(todoGanttchartController);
-        
+
         return todoGanttchartController;
     }
+
+    // Todoリスト（AI作成リスト・タスク案型表示）
+    public ITodoAICreateListTaskController CreateAIListTaskMVC(ITodoListBaseView todoListBaseView)
+    {
+        IValidationUtil util = new ValidationUtil();
+        ITodoProcess todoProcess = new TodoProcess(this.DBClient, this.DBQueue, this.LMStudioAPIClient);
+        // モデルインスタンス作成
+        ITodoAICreateListTaskModel todoAICreateListTaskModel = new TodoAICreateListTaskModel(this.Logger, todoProcess, this.UserData, util);
+        Constants constants = new Constants();
+        // TODO: ダイアログが必要ならここで作成（その時にはconstantsを渡す）
+        // Viewインスタンス作成
+        ITodoAICreateListTaskView todoAICreateListTaskView = new TodoAICreateListTaskView(this.CommonDialogViewInstance);
+        todoAICreateListTaskView.SetLogger(this.Logger);
+        // controllerインスタンス作成
+        ITodoAICreateListTaskController todoAICreateListTaskController = new TodoAICreateListTaskController(todoAICreateListTaskView, todoAICreateListTaskModel, this.ViewProxyUtil);
+        todoAICreateListTaskController.SetLogger(this.Logger);
+        todoAICreateListTaskView.SetController(todoAICreateListTaskController);
+
+        return todoAICreateListTaskController;
+    }
+    
+
 }

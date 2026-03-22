@@ -1,13 +1,14 @@
 package Controller.Login;
 
+import java.util.Date;
 import java.util.ArrayList;
-
 import Controller.ControllerBase;
 import Entity.Enum.LogLevel;
 import Entity.Enum.ViewStateEnum;
 import Interface.Controller.Login.ILostPassUserController;
 import Interface.Model.Login.ILostPassUserModel;
 import Interface.Model.Process.Login.ILoginProcess.ResultType;
+import Interface.View.IViewProxyUtil;
 import Interface.View.Login.ILostPassUserView;
 
 /*
@@ -24,9 +25,13 @@ public class LostPassUserController extends ControllerBase implements ILostPassU
   // Modelインスタンス
   private ILostPassUserModel Model;
 
-  public LostPassUserController(ILostPassUserView view, ILostPassUserModel model)
+  /** 画面ラップ処理インスタンス */
+  private IViewProxyUtil ViewProxyUtil;
+
+  public LostPassUserController(ILostPassUserView view, ILostPassUserModel model, IViewProxyUtil viewProxyUtil)
   {
-    this.View = view;
+    this.ViewProxyUtil = viewProxyUtil;
+    this.View = this.ViewProxyUtil.WrapView(ILostPassUserView.class, view);
     this.Model = model;
 
     // 画面状態を設定
@@ -58,7 +63,7 @@ public class LostPassUserController extends ControllerBase implements ILostPassU
   // 画面のインスタンスを取得
   public ILostPassUserView GetViewInstance()
   {
-    return this.View;
+    return this.ViewProxyUtil.UnwrapView(this.View);
   }
 
   // ユーザのメールアドレスから秘密の質問の番号を取得
@@ -87,12 +92,12 @@ public class LostPassUserController extends ControllerBase implements ILostPassU
         if (result.Value1 == ResultType.SuccessNotFoundAccount)
         {
           // ダイアログ表示
-          this.View.InputContentFailureDialog();
+          this.View.ShowInputContentFailureDialog();
         }
         else
         {
           // ダイアログ表示
-          this.View.FailureDialog();
+          this.View.ShowDBConnectionFailureDialog();
         }
       }
     });
@@ -102,6 +107,7 @@ public class LostPassUserController extends ControllerBase implements ILostPassU
   public void LostPassUserLoginAuth(String userName, String secretPassWord)
   {
     this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "Viewから忘却ログイン指示受信"); });
+    Date clickedDate = new Date();
 
     this.Model.LostPassUserLoginAuth(userName, secretPassWord, (isBusy) ->
     {
@@ -114,15 +120,46 @@ public class LostPassUserController extends ControllerBase implements ILostPassU
       // ログイン認証処理完了
       if (result.Value1 == ResultType.Success)
       {
-        this.View.TransitionAfterLoginView(result.Value2);
+        this.Model.GetReminderList(result.Value2.UserId, clickedDate, (isBusy) ->
+        {
+          // 処理中状態変化
+          this.View.ElementDisabled(isBusy);
+        }, (reminderList) -> {
+          if(reminderList.Value1 == ResultType.Success)
+          {
+            this.View.ReminderDialogView(reminderList.Value2, result.Value2);
+          }
+          else
+          {
+            this.View.ShowLoginFailureDialog();
+          }
+        });
       }
       else
       {
         // ヒント内容のコンボボックスをもとに戻す
         this.View.SetSecretInitialTips();
         // ダイアログ表示
-        this.View.LoginFailure();
+        this.View.ShowLoginFailureDialog();
       }
     });
+  }
+
+  /**
+   * 入力欄のイベント情報の変化が発生した
+   * @param userName ユーザ名
+   */
+  public void ChangedTextField(String userName)
+  {
+    this.View.SupportButtonDisabled(this.Model.GetSupportButtonPossibility(userName));
+  }
+
+  /**
+   * 入力欄のイベント情報の変化が発生した
+   * @param userName ユーザ名
+   */
+  public void ChangedTextField(String userName, String SecretPassword)
+  {
+    this.View.LoginButtonDisabled(this.Model.GetLoginButtonPossibility(userName, SecretPassword));
   }
 }

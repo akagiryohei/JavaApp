@@ -3,28 +3,32 @@ package View.Todo;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.event.EventListenerList;
 import java.util.ArrayList;
 import java.util.List;
 
 import Entity.UserList;
-import Interface.View.Todo.ITodoListView;
+import Entity.Enum.LogLevel;
+import View.Common.JPlaceholderTextField;
+import View.Todo.Listener.TodoSideBoardPanelListener;
 import View.Todo.Listener.TodoSideCommonPanelListener;
 
 
 /*
  * リスト・ガントチャート共通設定
  */
-public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionListener, MouseListener
+public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionListener, MouseListener, DocumentListener
 {
     // イベントリスナインスタンス
     protected EventListenerList ListenerList;
-    
+
     // +ボタン
     private JButton PlusButton;
 
     // リスト名入力欄
-    private JTextField ListNameInputField;
+    private JPlaceholderTextField ListNameInputField;
 
     // リスト一覧
     private JList<String> ScrollList;
@@ -34,9 +38,6 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
 
     // リストリスト
     private List<UserList> UserLists;
-
-    // リスト名リスト
-    private String[] ListNames;
 
     // リストモデル
     private DefaultListModel ListModel;
@@ -74,22 +75,23 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
         this.ScrollList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         this.ScrollList.setModel(this.ListModel);
         this.ScrollListPane = new JScrollPane(this.ScrollList);
-        this.ScrollListPane.setBounds(0,160,230,368);
+        this.ScrollListPane.setBounds(0,192,230,336);
         this.add(ScrollListPane);
 
         // リスト名入力欄設定ListNameInputField
-        this.ListNameInputField = new JTextField();
+        this.ListNameInputField = new JPlaceholderTextField();
+        this.ListNameInputField.SetPlaceholderText("新規リスト");
         this.ListNameInputField.setBounds(76,528,152,35);
         this.ListNameInputField.setColumns(1);
         this.add(this.ListNameInputField);
-        
+
         // +ボタン設定
         this.PlusButton = new JButton("＋");
         this.PlusButton.setActionCommand("PlusButton");
         this.PlusButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         this.PlusButton.setBounds(0,528,76,35);
         this.add(this.PlusButton);
-        
+
         // ポップアップメニュー設定
         this.Popup = new JPopupMenu();
         this.DeleteMenuItem = new JMenuItem();
@@ -145,10 +147,13 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
         this.BoardButton.addActionListener(this);
         this.ListButton.addActionListener(this);
         this.GanttchartButton.addActionListener(this);
+        this.AICreateListTaskButton.addActionListener(this);
         this.PlusButton.addActionListener(this);
         this.ScrollList.addMouseListener(this);
         this.DeleteMenuItem.addActionListener(this);
         this.UpdateMenuItem.addActionListener(this);
+        this.ListNameInputField.getDocument().addDocumentListener(this);
+        this.PlusButton.setEnabled(false);
     }
 
     public void Hide()
@@ -156,10 +161,13 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
         this.BoardButton.removeActionListener(this);
         this.ListButton.removeActionListener(this);
         this.GanttchartButton.removeActionListener(this);
+        this.AICreateListTaskButton.removeActionListener(this);
         this.PlusButton.removeActionListener(this);
         this.ScrollList.removeMouseListener(this);
         this.DeleteMenuItem.removeActionListener(this);
         this.UpdateMenuItem.removeActionListener(this);
+        this.ListNameInputField.setText("");
+        this.ListNameInputField.getDocument().removeDocumentListener(this);
     }
 
     /**
@@ -170,7 +178,7 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
     {
         this.ListenerList.add(TodoSideCommonPanelListener.class, listener);
     }
-    
+
     /**
      * リスナ対象削除
      * @param listener 削除対象リスナインスタンス
@@ -179,7 +187,7 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
     {
         this.ListenerList.remove(TodoSideCommonPanelListener.class, listener);
     }
-    
+
     /**
      * ボタンからのアクションリスナー
      */
@@ -198,6 +206,10 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
             case "GanttchartButton":
                 // ガントチャートボタン押下イベントを受信
                 this.GanttchartButtonClicked();
+                break;
+            case "AICreateListTaskButton":
+                // AIリスト・タスク案作成ボタン押下イベントを受信
+                this.AICreateListTaskButtonClicked();
                 break;
             case "PlusButton":
                 this.PlusButton();
@@ -221,7 +233,7 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
     private void BoardButtonClicked()
     {
         System.out.println("ボードボタンが押下された");
-        
+
         for (TodoSideCommonPanelListener listener : this.ListenerList.getListeners(TodoSideCommonPanelListener.class))
         {
             listener.BoardButtonClicked();
@@ -253,6 +265,19 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
             listener.GanttchartButtonClicked();
         }
     }
+
+    /**
+     * AIリスト・タスク案作成ボタンクリック時の処理
+     */
+    private void AICreateListTaskButtonClicked()
+    {
+        System.out.println("AIリスト・タスク案作成ボタンが押下された");
+        for (TodoSideCommonPanelListener listener : this.ListenerList.getListeners(TodoSideCommonPanelListener.class))
+        {
+            listener.AICreateListTaskButtonClicked();
+        }
+    }
+
 
     /**
      * ＋ボタン押下時処理
@@ -318,5 +343,55 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
     public int GetSelectedListId()
     {
         return this.SelectedListId;
+    }
+
+    /**
+     * リスト名が入力されたとき
+     */
+    @Override
+    public void insertUpdate(DocumentEvent e)
+    {
+        this.ChangedTextField(e);
+    }
+
+    /**
+     * リスト名が消されたとき
+     */
+    @Override
+    public void removeUpdate(DocumentEvent e)
+    {
+        this.ChangedTextField(e);
+    }
+
+    /**
+     * Controllerで渡す：isBusyで使う
+     * @param isBusy 処理中かどうか
+     */
+    public void ElementDisabled(boolean isDisabled)
+    {
+        this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面要素押下可否設定" + "(" + String.valueOf(isDisabled) + ")"); });
+        this.PlusButton.setEnabled(!isDisabled);
+        this.ListNameInputField.setEnabled(!isDisabled);
+        this.ScrollList.setEnabled(!isDisabled);
+        this.BoardButton.setEnabled(!isDisabled);
+        this.ListButton.setEnabled(!isDisabled);
+        this.GanttchartButton.setEnabled(!isDisabled);
+    }
+
+    /**
+     * リスト名が変更されたときの入力監視
+     * @param e 入力欄のインスタンス情報
+     */
+    private void ChangedTextField(DocumentEvent e)
+    {
+        if (e.getDocument() == this.ListNameInputField.getDocument())
+        {
+            String listName = this.ListNameInputField.getText();
+            this.PlusButton.setEnabled(!listName.isEmpty());
+        }
+    }
+    @Override
+    public void changedUpdate(DocumentEvent e) {
+        // ここは何もしない
     }
 }

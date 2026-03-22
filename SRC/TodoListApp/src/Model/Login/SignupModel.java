@@ -11,6 +11,12 @@ import Interface.Model.Process.Login.ILoginProcess.ResultType;
 
 public class SignupModel implements ISignupModel
 {
+  /** パスワードのバイト数の定数（下限）*/
+  private final Integer MIN_PASSWORD_LENGTH = 7;
+
+  /** パスワードのバイト数の定数（上限）*/
+  private final Integer MAX_PASSWORD_LENGTH = 13;
+
   /** ログイン処理インスタンス */
   private ILoginProcess Process;
 
@@ -63,9 +69,9 @@ public class SignupModel implements ISignupModel
 
   public void SignupAuth(String email, String password, String SecretTipsId, String SecretPassword, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
   {
-    int getLength = this.Util.GetStringLength(password);
+    int getLength = this.Util.GetWideStringLength(password);
     if (this.Util.IsEmailValid(email) && this.Util.IsPassWordValid(password) && 
-        getLength > 7 && getLength < 13)
+        getLength > MIN_PASSWORD_LENGTH && getLength < MAX_PASSWORD_LENGTH)
     {
       this.Process.Signup(email, password, SecretTipsId, SecretPassword, (isBusy) -> {
         // Viewに処理中かどうかを通知

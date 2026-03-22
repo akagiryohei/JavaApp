@@ -34,12 +34,15 @@ public class EditProgressRateDialogView extends JDialog implements ActionListene
     private JButton CancelButton;
     // イベントリスナインスタンス
     protected EventListenerList ListenerList;
+    /** ダイアログ定数クラス */
+    private Constants Constants;
 
     /**
      * コストラクタ
      */
-    public EditProgressRateDialogView()
+    public EditProgressRateDialogView(Constants constants)
     {
+        this.Constants = constants;
         this.setSize(400, 256);
         this.setLayout(null);
         this.setLocationRelativeTo(null);
@@ -48,10 +51,10 @@ public class EditProgressRateDialogView extends JDialog implements ActionListene
         this.ListenerList = new EventListenerList();
 
         // ダイアログタイトル
-        this.setTitle(Constants.PROGRESS_RATE_EDIT_DIALOG);
+        this.setTitle(this.Constants.PROGRESS_RATE_EDIT_DIALOG);
 
         // 指示文言
-        this.OperationLabel = new JLabel(Constants.PROGRESS_RATE_FAILURE_OPERATION);
+        this.OperationLabel = new JLabel(this.Constants.PROGRESS_RATE_FAILURE_OPERATION);
         OperationLabel.setBounds(76,10,350,35);
         this.add(this.OperationLabel);
 

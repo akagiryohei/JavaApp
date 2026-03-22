@@ -33,7 +33,7 @@ public interface IDBClient
   /**
    * リスト登録メソッド
    */
-  public DBResultType InsertList(String listText, int userID);
+  public DBClientDtoPair<DBResultType, Integer> InsertList(String listText, int userID);
 
   /**
   * リスト編集メソッド
@@ -59,6 +59,13 @@ public interface IDBClient
    * タスク登録メソッド
    */
   public DBResultType CreateTask(InputTask inputTask);
+
+  /**
+   * 複数タスク登録メソッド
+   * @param inputTasks 登録タスクリスト
+   * @return 処理結果
+   */
+  public DBResultType CreateTasks(List<InputTask> inputTasks);
 
   /**
    * タスク編集メソッド（タスク名）

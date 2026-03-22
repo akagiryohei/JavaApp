@@ -16,10 +16,4 @@ public interface ITodoListBaseView
    * 画面非表示
    */
   public void Hide();
-
-  /** TODO: イベントリスナに修正するとこのインタフェースを消せる
-   * View切り替えメソッド
-   * @param type ViewType
-   */
-  public void ChangeView(ViewType type);
 }

@@ -19,10 +19,19 @@ public class CommonDialogView extends JDialog
             put(CommonDialogType.LoginFailureDialog, new Pair<String, String>("ログイン失敗ダイアログ", "ログイン失敗です"));
             put(CommonDialogType.SiginuPFailureDialog, new Pair<String, String>("登録失敗ダイアログ", "登録失敗です"));
             put(CommonDialogType.InputContentFailureDialog, new Pair<String, String>("System failure", "入力テキストが間違っています。"));
-            put(CommonDialogType.ListLengthFailureDialog, new Pair<String, String>("失敗ダイアログ", "リスト名は0文字以上10文字以下で設定してください"));
+            put(CommonDialogType.ListLengthFailureDialog, new Pair<String, String>("System failure", "リスト名は0文字以上10文字以下で設定してください"));
             put(CommonDialogType.ListDeleteFailureDialog, new Pair<String, String>("失敗ダイアログ", "リスト削除失敗です"));
             put(CommonDialogType.ListUpdateFailureDialog, new Pair<String, String>("失敗ダイアログ", "リスト更新失敗です"));
             put(CommonDialogType.TaskDeleteFailureDialog, new Pair<String, String>("失敗ダイアログ", "タスク削除失敗です"));
+            put(CommonDialogType.TaskCreateFailureDialog, new Pair<String, String>("System failure", "登録失敗です。"));
+            put(CommonDialogType.TaskUpdateFailureDialog, new Pair<String, String>("編集失敗ダイアログ", "編集失敗です。"));
+            put(CommonDialogType.GetTaskFailureDialog, new Pair<String, String>("System failure", "タスクの取得に失敗しました。"));
+            put(CommonDialogType.GetUserListFailureDialog, new Pair<String, String>("System failure", "リスト情報の取得に失敗しました。"));
+            put(CommonDialogType.GetListAndTaskFailureDialog, new Pair<String, String>("System failure", "リスト内容またはタスク内容の取得に失敗しました。"));
+            put(CommonDialogType.UpdateTaskFailureDialog, new Pair<String, String>("System failure", "タスク情報を編集できませんでした。"));
+            put(CommonDialogType.ListTaskCreateSuccessDialog, new Pair<String, String>("登録成功ダイアログ", "登録成功です。"));
+            put(CommonDialogType.ListTaskCreateFailDialog, new Pair<String, String>("登録失敗ダイアログ", "登録失敗しました。再度実行してください。"));
+            put(CommonDialogType.AskFailDialog, new Pair<String, String>("生成失敗ダイアログ", "生成失敗しました。再度実行してください。"));
         }
     };
     
@@ -78,7 +87,22 @@ public class CommonDialogView extends JDialog
         ListLengthFailureDialog,
         ListDeleteFailureDialog,
         ListUpdateFailureDialog,
-        TaskDeleteFailureDialog;
+        TaskDeleteFailureDialog,
+        TaskUpdateFailureDialog,
+        TaskCreateFailureDialog,
+        GetTaskFailureDialog,
+        GetUserListFailureDialog,
+        GetListAndTaskFailureDialog,
+        UpdateTaskFailureDialog,
+
+        /* 登録成功ダイアログ */
+        ListTaskCreateSuccessDialog,
+
+        /* 登録失敗ダイアログ */
+        ListTaskCreateFailDialog,
+
+        /** 生成失敗ダイアログ */
+        AskFailDialog;
     }
 
     /**

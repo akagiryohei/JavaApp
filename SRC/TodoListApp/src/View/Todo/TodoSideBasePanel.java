@@ -23,6 +23,9 @@ public abstract class TodoSideBasePanel extends JPanelViewBase implements Action
     // ガントチャートボタン
     public JButton GanttchartButton;
 
+    // AIリスト・タスク案作成ボタン
+    public JButton AICreateListTaskButton;
+
     /**
      * コンストラクタ
      */
@@ -63,6 +66,12 @@ public abstract class TodoSideBasePanel extends JPanelViewBase implements Action
         this.GanttchartButton.setBounds(0,128,230,32);
         this.add(this.GanttchartButton);
 
+        // AIリスト・タスク案作成ボタンの設定
+        this.AICreateListTaskButton = new JButton("LM Studio");
+        this.AICreateListTaskButton.setActionCommand("AICreateListTaskButton");
+        this.AICreateListTaskButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        this.AICreateListTaskButton.setBounds(0,160,230,32);
+        this.add(this.AICreateListTaskButton);
     }
 
     public void Show()

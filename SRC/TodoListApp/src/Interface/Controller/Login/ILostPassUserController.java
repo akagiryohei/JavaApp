@@ -42,4 +42,16 @@ public interface ILostPassUserController
    * @param secretPassWord 秘密のパスワード
    */
   public void LostPassUserLoginAuth(String userName, String secretPassWord);
+
+  /**
+   * 入力欄のイベント情報の変化が発生した
+   * @param userName ユーザ名
+   */
+  public void ChangedTextField(String userName);
+
+  /**
+   * 入力欄のイベント情報の変化が発生した
+   * @param userName ユーザ名
+   */
+  public void ChangedTextField(String userName, String SecretPassword);
 }

@@ -1,4 +1,6 @@
 package Model.Login;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
 import Entity.Pair;
@@ -10,17 +12,8 @@ import Interface.Model.Login.ILostPassUserModel;
 import Interface.Model.Process.Login.ILoginProcess;
 import Interface.Model.Process.Login.ILoginProcess.ResultType;
   
-public class LostPassUserModel implements ILostPassUserModel
+public class LostPassUserModel extends LoginModelBase implements ILostPassUserModel
 {
-  /** ログイン処理インスタンス */
-  private ILoginProcess Process;
-
-  /** ロガーインスタンス */
-  private ILogger Logger;
-
-  /** validationインスタンス */
-  private IValidationUtil Util;
-
   /**
    * コンストラクタ
    * 依存性注入
@@ -46,10 +39,36 @@ public class LostPassUserModel implements ILostPassUserModel
     this.Process.GetUserSecretTips(email, (isBusy) -> {
       isBusyChanged.accept(isBusy);
     }, (result) -> {
+      result = new Pair<ResultType, String>(result.Value1, this.Util.GetSubstringText(result.Value2, 12));
       this.Logger.WriteLog(LogLevel.Info, "Process層からfnishedコールバック受信");
       this.Logger.WriteLog(LogLevel.Info, "ResultType=" + result.Value1.name());
       finished.accept(result);
     });
+  }
+
+  /**
+   * Supportボタンの押下可否を判定
+   * @param email メールアドレス
+   * @return true 押下可能, false 押下不可
+  */
+  public Boolean GetSupportButtonPossibility(String email)
+  {
+    return this.Util.IsEmailValid(email);
+  }
+
+  /**
+   * Try Loginボタンの押下可否を判定
+   * @param email メールアドレス
+   * @return true 押下可能, false 押下不可
+  */
+  public Boolean GetLoginButtonPossibility(String email, String SecretPassword)
+  {
+    int length = this.Util.GetWideStringLength(SecretPassword);
+    if(this.Util.IsEmailValid(email) && length > 0)
+    {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -62,7 +81,7 @@ public class LostPassUserModel implements ILostPassUserModel
   public void LostPassUserLoginAuth(String email, String secretPassword, Consumer<Boolean> isBusyChanged, Consumer<Pair<ResultType, UserData>> finished)
   {
     // validationUtilInstance.IsEmailValid
-    int getLength = this.Util.GetStringLength(secretPassword);
+    int getLength = this.Util.GetWideStringLength(secretPassword);
     if (this.Util.IsEmailValid(email) && getLength <= 20)
     {
       this.Process.LostPassUserLogin(email, secretPassword, (isBusy) -> {

@@ -22,11 +22,26 @@ public interface IValidationUtil
   public boolean IsPassWordValid(String pass);
 
   /**
-   * 文字列バイト数取得
+   * 文字列バイト数取得（全角文字を除く）
    * @param text
    * @return
    */
   public int GetStringLength(String text);
+
+  /**
+   * 文字列バイト数取得（全角文字を含む）
+   * @param text
+   * @return
+   */
+  public int GetWideStringLength(String text);
+
+  /**
+   * 文字列を指定したバイト数だけ切り取り
+   * @param text
+   * @param bytes
+   * @return
+   */
+  public String GetSubstringText(String text, Integer bytes);
 
     /**
    * 引数の日付型オブジェクトがorigin値かどうか

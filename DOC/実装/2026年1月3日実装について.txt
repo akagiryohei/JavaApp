@@ -1,0 +1,14 @@
+LM StudioのAPIとの通信接続完了
+基本的にgithub copilotに実装を依頼
+設定ファイルの各項目については赤木が実装
+実装の解説はLM Studio APIへの通信実装解説(github copilot).txtに内容をコピーしている。
+
+新ライブラリ
+・OkHttpClient
+
+テスト用ファイル
+TestLMStudio.java
+
+テスト用コマンド
+・javac -cp "lib/*;bin" -d bin (Get-ChildItem -Recurse -Filter "*.java" -Path src | ForEach-Object { $_.FullName })
+・java -cp "bin;lib/*" TestLMStudio

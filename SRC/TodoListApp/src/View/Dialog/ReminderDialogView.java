@@ -115,9 +115,9 @@ public class ReminderDialogView extends JDialog implements ActionListener
         switch (e.getActionCommand())
         {
             case "OKButton":
-            // OKボタン押下イベントを受信
-            this.ReminderOKButtonClicked();
-            break;
+                // OKボタン押下イベントを受信
+                this.ReminderOKButtonClicked();
+                break;
         }
     }
 
@@ -131,8 +131,8 @@ public class ReminderDialogView extends JDialog implements ActionListener
 
         for (ReminderDialogViewListener listener : this.ListenerList.getListeners(ReminderDialogViewListener.class))
         {
-        // 新規登録ボタン押下を通知
-        listener.ReminderOKButtonClicked();
+            // 新規登録ボタン押下を通知
+            listener.ReminderOKButtonClicked();
         }
     }
 
@@ -144,7 +144,7 @@ public class ReminderDialogView extends JDialog implements ActionListener
     public void Show(List<ArrayList<String>> list, boolean isModal)
     {
         this.OKButton.addActionListener(this);
-        this.OperationLabel.setText("未完了タスク一覧です");
+        this.OperationLabel.setText(list.size() > 0 ? "未完了タスク一覧です" : "タスクなし");
 
         for(int rowNum = 0; rowNum < list.size(); rowNum++)
         {
@@ -165,8 +165,7 @@ public class ReminderDialogView extends JDialog implements ActionListener
     {
         // ダイアログ非表示指示
         this.setVisible(false);
-
-        // TODO: ボタンを追加するなら押下監視終了する
+        this.OKButton.removeActionListener(this);
 
         // 表示文言をクリアする
         this.setModal(false);

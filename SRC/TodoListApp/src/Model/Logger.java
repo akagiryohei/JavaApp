@@ -5,71 +5,101 @@ import Entity.Enum.LogLevel;
 import Interface.Model.ILogger;
 
 import java.text.SimpleDateFormat;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class Logger implements ILogger
 {
-  private Date date = new Date();
+  String Dir;
   private File unNumberedLogFile;
+  private File checkFile;
   private File logFile;
-  private long fileSize;
+  private long maxFileSize;
+  private final SimpleDateFormat unNumberedLogFileFormater = new SimpleDateFormat("yyyyMMdd");
+  private final SimpleDateFormat writeLogFormater = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
+  private final Integer maxFileNumber = 99;
 
   // コンストラクタ
   public Logger(String dir, long logSize)
   {
-    SimpleDateFormat formater = new SimpleDateFormat("yyyyMMdd");
-    this.unNumberedLogFile = new File(dir + "\\" + formater.format(date) + "_logfile");
-    File checkFile = new File(this.unNumberedLogFile + "_1.log");
-    this.fileSize = logSize;
-
-    // logディレクトリが存在しない場合は生成する
-    if (checkFile.exists() == false)
-    {
-        try
-        {
-            // フォルダ新規作成
-            File fileDir = new File(dir);
-            fileDir.mkdir();
-            checkFile.createNewFile();
-        }
-        catch (Exception e)
-        {
-            // ログ出力自体の例外なので何もしない。
-        }
-    }
+    this.Dir = dir;
+    this.unNumberedLogFile = new File(dir + File.separator + unNumberedLogFileFormater.format(new Date()) + "_logfile");
+    this.checkFile = new File(this.unNumberedLogFile + "_1.log");
+    this.maxFileSize = logSize;
   }
-
+  
   // ログ出力
   public void WriteLog(LogLevel level, String content)
   {
     // ログに書き込む内容を生成する
-    SimpleDateFormat formater = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
-    String nowDateTimeStr = formater.format(date);
+    String nowDateTimeStr = writeLogFormater.format(new Date());
     String trace = GetStackTrace();
     String errorLevelStr = level.getValue();
     String contents = nowDateTimeStr + " " + errorLevelStr + " " + trace + " " + content + "\n";
     System.out.println(contents);
 
+    // ファイルに書き込む
+    this.WriteLogLine(contents);
+  }
+  
+  /** ログ出力
+   * @param thread 例外発生スレッドオブジェクト
+   * @param throwable 例外オブジェクト
+   */
+  public void WriteLog(Thread thread, Throwable throwable)
+  {
+        // スタックトレースを文字列として取得
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        throwable.printStackTrace(pw);
+        String stackTrace = sw.toString();
+        var contents = "未処理の例外が発生しました（スレッド: " + thread.getName() + "）\n" + stackTrace;
+        System.out.println(contents);
+
+        // ファイルに書き込む
+        this.WriteLogLine(contents);
+  }
+
+  // 書き込み権限を確認してファイルに書き込む
+  public void WriteLogLine(String contents)
+  {
     try {
-        // 書き込み対象のログファイルを精査する
-        SetLogFileName(fileSize);
+        // logディレクトリが存在しない場合は作成する
+        if (Files.exists(Paths.get(Dir)) == false)
+        {
+          Files.createDirectory(Paths.get(Dir));
+        }
+
+        // 初期のログファイルが存在しない場合は作成する
+        if (checkFile.exists() == false)
+        {
+          checkFile.createNewFile();
+        }
+        
+        // ファイルサイズとログ文字列を合わせたバイト数が、ログサイズ上限より大きい場合はファイルを精査する
+        if(this.logFile == null || Files.size(this.logFile.toPath()) + this.GetWideStringLength(contents) > this.maxFileSize)
+        {
+          this.SetLogFilePath(this.maxFileSize);
+        }
 
         // 書き込み権限の確認
-        if (logFile.exists() == false || !logFile.canWrite()) {
-            // ファイルがない場合は新規作成
-            logFile.createNewFile();
+        if (!this.logFile.canWrite())
+        {
             // 書き込み可能に変更
-            logFile.setWritable(true);
+            this.logFile.setWritable(true);
         }
         
         // ファイルに書き込む
         FileWriter filewriter;
-        filewriter = new FileWriter(logFile, true);
+        filewriter = new FileWriter(this.logFile, true);
         filewriter.write(contents);
         filewriter.close();
 
@@ -79,27 +109,33 @@ public class Logger implements ILogger
   }
 
   // 出力ログファイル名取得
-  public void SetLogFileName(long fileSize) throws IOException
+  private void SetLogFilePath(long fileSize) throws IOException
   {
       int cnt = 1;
-      File loopFile = new File(unNumberedLogFile.toString() + "_" + cnt + ".log");
+      var currentpath = Paths.get(this.unNumberedLogFile.toString() + "_" + cnt + ".log");
 
       // ファイルが存在するまで繰り返す（上限は99とする）
-      while (loopFile.exists() == true && cnt <= 99)
+      while (Files.exists(currentpath) == true && cnt <= this.maxFileNumber)
       {
+        try(BufferedReader reader = Files.newBufferedReader(currentpath, StandardCharsets.UTF_8))
+        {
           // ファイルサイズを参照し、指定バイト数以上の場合はさらにインクリメントする
-          if (Files.size(loopFile.toPath()) < fileSize)
+          if (Files.size(currentpath) < fileSize)
           {
               break;
           }
           else
           {
-              loopFile = new File(unNumberedLogFile.toString() + "_" + cnt + ".log");
+            cnt++;
+            currentpath = Paths.get(this.unNumberedLogFile.toString() + "_" + cnt + ".log");
           }
-          cnt++;
+          
+        } catch (IOException e) {
+          // ファイル読み込みに失敗した
+        }
       }
 
-      logFile = new File(loopFile.toString());
+      this.logFile = new File(currentpath.toString());
   }
 
   // エラークラスのスタックトレースから関数呼出元を抽出
@@ -110,5 +146,11 @@ public class Logger implements ILogger
     String relativePath = currentRelativePath.toAbsolutePath().toString();
 
     return relativePath + File.separator + message[2].getFileName() + " (" + message[2].getLineNumber() + "行目)";
-  } 
+  }
+
+  // 文字列バイト数取得
+  private int GetWideStringLength(String text)
+  {
+    return text.getBytes(StandardCharsets.UTF_8).length;
+  }
 }

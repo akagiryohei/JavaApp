@@ -4,18 +4,25 @@ import java.awt.*;
 import javax.swing.*;
 
 import Entity.UserData;
+import Interface.Controller.IMainWindowController;
 import Interface.Controller.Login.ILoginBaseController;
+import Interface.Controller.Login.ILoginController;
 import Interface.Controller.Todo.ITodoListBaseController;
 import Interface.DI.IMainWindowDI;
 import Interface.View.IMainWindowView;
 import Interface.View.Login.ILoginBaseView;
 import Interface.View.Todo.ITodoListBaseView;
+import View.Dialog.FatalErrorDialogView;
+import View.Dialog.Listener.FatalErrorDialogViewListener;
 import View.Login.Listener.LoginBaseViewListener;
 
-public class MainWindowView extends JFrameViewBase implements IMainWindowView, LoginBaseViewListener
+public class MainWindowView extends JFrameViewBase implements IMainWindowView, LoginBaseViewListener, FatalErrorDialogViewListener
 {
   // ウィンドウタイトル文字列定義
   private static final String WINDOW_TITLE = "Todoアプリ";
+
+  // コントローラーインスタンス
+  private IMainWindowController Controller;
 
   // ログイン前画面インスタンス
   private ILoginBaseView BeforeLogin;
@@ -35,6 +42,9 @@ public class MainWindowView extends JFrameViewBase implements IMainWindowView, L
   // Todoリスト（リスト型表示の）コントローラーのインスタンス
   private ITodoListBaseController TodoListBaseControllerInstance;
 
+  // 致命的なエラーダイアログのインスタンス
+  private FatalErrorDialogView FatalErrorDialogViewInstance;
+
   // 画面表示種別
   public enum ViewType{
     // ログイン前
@@ -45,7 +55,7 @@ public class MainWindowView extends JFrameViewBase implements IMainWindowView, L
   };
 
   // コンストラクタ
-  public MainWindowView(IMainWindowDI mainWindowDi)
+  public MainWindowView(IMainWindowDI mainWindowDi, FatalErrorDialogView fatalErrorDialogView)
   {
     this.setTitle(MainWindowView.WINDOW_TITLE);
     this.setSize(1000, 600); // 場所指定はないから、画面のどの部分に出したいのかによって処理追加必要
@@ -53,12 +63,16 @@ public class MainWindowView extends JFrameViewBase implements IMainWindowView, L
     this.setLayout(this.layout);
     this.setLocationRelativeTo(null); // nullを入れることで自動的にディスプレイの中心に出る
     this.setResizable(false);
+    this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // ウィンドウ閉じるボタン押下でアプリを終了
 
     this.MainWindowDIInstance = mainWindowDi;
+    this.FatalErrorDialogViewInstance = fatalErrorDialogView;
   }
 
   public void Show()
   {
+    this.FatalErrorDialogViewInstance.AddListener(this);
+
     // 初回は必ずログイン前画面へ遷移
     this.ChangeView(ViewType.BeforeLogin, null);
     // ウィンドウ表示
@@ -67,8 +81,36 @@ public class MainWindowView extends JFrameViewBase implements IMainWindowView, L
 
   public void Hide()
   {
+    this.FatalErrorDialogViewInstance.RemoveListener(this);
+
     // ウィンドウ非表示
     this.setVisible(false);
+  }
+
+  /**
+   * コントローラインスタンスを設定
+   * @param controller コントローラインスタンス
+   */
+  public void SetController(IMainWindowController controller)
+  {
+    this.Controller = controller;
+  }
+
+  /**
+   * 致命的エラーダイアログ表示指示
+   */
+  public void ShowFatalErrorDialog()
+  {
+    this.FatalErrorDialogViewInstance.Show(this);
+  }
+
+  /**
+   * 致命的エラーダイアログからアプリ終了ボタン押下を受信
+   */
+  public void TerminateApplicationButtonClicked()
+  {
+    this.FatalErrorDialogViewInstance.Hide();
+    this.Controller.TerminateApplication(true);
   }
 
   /**

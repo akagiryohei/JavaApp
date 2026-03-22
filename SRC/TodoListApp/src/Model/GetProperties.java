@@ -1,4 +1,5 @@
 package Model;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -14,8 +15,8 @@ import View.Dialog.CommonDialogView.CommonDialogType;
 
 public class GetProperties implements IGetProperties
 {
+  String filePath;
   Properties properties;
-
   private final HashMap<PropertyKey, String> DefaultValueTable = new HashMap<PropertyKey, String>()
   {
       {
@@ -26,16 +27,27 @@ public class GetProperties implements IGetProperties
           put(PropertyKey.DBName, "");
           put(PropertyKey.DisplayUpdateInterval, "");
           put(PropertyKey.LogRotationSize, "536870912");
+          put(PropertyKey.BaseUrl, "");
+          put(PropertyKey.ChatPath, "");
+          put(PropertyKey.ModelName, "");
+          put(PropertyKey.ApiKey, "");
+          put(PropertyKey.SystemPrompt, "");
       }
   };
 
   // コンストラクタ
   public GetProperties(String filePath)
   {
+    this.filePath = filePath;
     this.properties = new Properties();
+  }
 
-    try {
-      this.properties.load(Files.newBufferedReader(Paths.get(filePath), StandardCharsets.UTF_8));
+  // ファイルをロードする
+  public void Load()
+  {
+    try(BufferedReader reader = Files.newBufferedReader(Paths.get(this.filePath), StandardCharsets.UTF_8))
+    {
+      this.properties.load(reader);
 
     } catch (IOException e) {
       // ファイル読み込みに失敗した

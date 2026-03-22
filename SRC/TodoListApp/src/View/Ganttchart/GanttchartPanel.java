@@ -56,7 +56,7 @@ public class GanttchartPanel extends JPanel implements ActionListener
       put(FieldColumnType.ProgressRate, new FieldLabelInfo("進捗状況", 8, 50));
       put(FieldColumnType.StartDate, new FieldLabelInfo("開始", 10, 70));
       put(FieldColumnType.EndDate, new FieldLabelInfo("終了", 10, 70));
-      put(FieldColumnType.WeekFields, new FieldLabelInfo("yyyy/M/d", 10, 90));
+      put(FieldColumnType.WeekFields, new FieldLabelInfo("yyyy/M/d", 10, 80));
     }
   };
 
@@ -84,6 +84,11 @@ public class GanttchartPanel extends JPanel implements ActionListener
    * 表示対象の年月
    */
   private YearMonth ActiveYearMonth;
+
+  /*
+   * 本日の日付（本日とする日付）
+   */
+  private LocalDate Today;
 
   /*
    * 表示タスク一覧
@@ -195,7 +200,8 @@ public class GanttchartPanel extends JPanel implements ActionListener
    */
   public void Show()
   {
-    // 常時リスナ監視開始オブジェクトなし
+    // イベントリスナ監視開始
+    this.StartEndProgressRateButton(true);
   }
 
   /**
@@ -203,15 +209,8 @@ public class GanttchartPanel extends JPanel implements ActionListener
    */
   public void Hide()
   {
-    // インスタンスを破棄
-    this.Tasks.clear();
-    this.Tasks = null;
-
-    // イベントリスナ監視終了（最代入前のインスタンスを破棄にあたって、タスク進捗率ボタン用の処理）
+    // イベントリスナ監視終了
     this.StartEndProgressRateButton(false);
-
-    // コンポーネントから全要素を削除
-    this.removeAll();
   }
 
   /**
@@ -259,14 +258,26 @@ public class GanttchartPanel extends JPanel implements ActionListener
   /**
    * ガントチャート表描画
    * @param activYearMonth 表示対象の年月
+   * @param today 本日の日付
    * @param tasks 表示対象のタスク（タスク期間が表示対象の年月に含まれるタスクを入力すること）
    */
-  public void RenderGanttchartGrid(YearMonth activYearMonth, List<GanttchartTask> tasks)
+  public void RenderGanttchartGrid(YearMonth activYearMonth, LocalDate today, List<GanttchartTask> tasks)
   {
     // 旧インスタンスを破棄してから代入
-    this.Hide();
+    this.Tasks.clear();
+    this.StartEndProgressRateButton(false);
+    Arrays.stream(this.getComponents())
+          .filter(comp -> comp instanceof JButton)
+          .map(comp -> (JButton) comp)
+          .forEach(button ->
+          {
+            // 旧ボタンのイベントインスタンスを破棄
+            button.putClientProperty(this.ProgressRateButtonPutClientPropertyName, null);
+          });
+    this.removeAll();
 
     this.ActiveYearMonth = activYearMonth;
+    this.Today = today;
     this.Tasks = tasks;
 
     // 要素数から高さを再設定
@@ -280,8 +291,59 @@ public class GanttchartPanel extends JPanel implements ActionListener
 
     // イベントリスナ監視開始（タスク進捗率ボタン用の処理）
     this.StartEndProgressRateButton(true);
+
+    // GridBagLayoutは自動で再描画しないため明示的に実行
+    this.repaint();
+    this.revalidate();
   }
-  
+
+  /**
+   * 本日の日付を設定・更新（タスク設定済みの場合はセル表示も更新）
+   * @param today 本日の日付
+   */
+  public void RefreshTodayCell(LocalDate today)
+  {
+    // 今日の日付を更新
+    this.Today = today;
+
+    if (this.Tasks.size() == 0)
+    {
+      // 表示中タスクが0件の場合は何もせず以降を処理せず終了
+      return;
+    }
+
+    GridBagLayout layout = (GridBagLayout) this.getLayout();
+    var preWeekColumnCount = (int)this.ColumnLabelInfoTables.keySet().stream().filter(key -> key != FieldColumnType.WeekFields).count();
+    var taskloopNum = 1;
+
+    for (var task : this.Tasks)
+    {
+      for (var day = 1; day <= this.ActiveYearMonth.lengthOfMonth(); day++)
+      {
+        var currentDate = this.ActiveYearMonth.atDay(day);
+        final int gridx = (preWeekColumnCount + day) - 1;  // ラムダ式に渡すために定数に変換する必要がある
+        var gridy = taskloopNum;
+
+        Arrays.stream(this.getComponents())
+              .filter(comp -> comp instanceof JPanel)
+              .map(comp -> (JPanel) comp)
+              .filter(panel ->
+              {
+                GridBagConstraints gbc = layout.getConstraints(panel);
+                return gbc.gridx == gridx && gbc.gridy == gridy;
+              })
+              .findFirst()
+              .ifPresent(panel ->
+              {
+                // 背景色を更新
+                this.SetBackgroundPanelColor(panel, currentDate, task.StartDate, task.EndDate);
+              });
+      }
+
+      taskloopNum++;
+    }
+  }
+
   /**
    * タスク進捗率ボタンイベントリスナ監視開始終了処理
    * @param isStart イベントリスナ監視開始:true, イベントリスナ監視終了:false
@@ -300,7 +362,6 @@ public class GanttchartPanel extends JPanel implements ActionListener
             else
             {
               button.removeActionListener(this);
-              button.putClientProperty(this.ProgressRateButtonPutClientPropertyName, null);
             }
           });
   }
@@ -310,8 +371,18 @@ public class GanttchartPanel extends JPanel implements ActionListener
    */
   private void RefreshHeight()
   {
-    var bounds = this.getBounds();
-    this.setBounds(bounds.x, bounds.y, this.Width, this.GridRowHeight * (this.Tasks.size() + 1));
+    // Calculate new height based on number of tasks (rows)
+    int height = this.GridRowHeight * (this.Tasks.size() + 1);
+
+    // Update preferred/minimum/actual size so JScrollPane can detect scrolling requirements
+  this.setPreferredSize(new Dimension(this.Width, height));
+  this.setMinimumSize(new Dimension(this.Width, height));
+  // Prevent BoxLayout parent from stretching this panel vertically when there are few rows
+  this.setMaximumSize(new Dimension(this.Width, height));
+    // Also keep the component's size in sync for cases where absolute positioning is used
+    this.setSize(this.Width, height);
+    // Trigger layout updates
+    this.revalidate();
   }
 
   /**
@@ -395,6 +466,10 @@ public class GanttchartPanel extends JPanel implements ActionListener
 
         backgroundPanel.setBackground(Color.white);
       }
+      else
+      {
+        backgroundPanel.setBackground(null);
+      }
 
       backgroundPanel.setPreferredSize(new Dimension(columnTypeInfo.Width, 1));
       backgroundPanel.setMinimumSize(new Dimension(columnTypeInfo.Width, 1));
@@ -448,14 +523,15 @@ public class GanttchartPanel extends JPanel implements ActionListener
               if (FieldColumnType.GetType(columnIndex) == FieldColumnType.TaskName)
               {
                 label.setText(task.TaskName);
+                label.setToolTipText(task.TaskName);
               }
               else if (FieldColumnType.GetType(columnIndex) == FieldColumnType.StartDate)
               {
-                label.setText(task.StartDate.format(this.Formatter));
+                label.setText(task.StartDate != null ? task.StartDate.format(this.Formatter) : "");
               }
               else if (FieldColumnType.GetType(columnIndex) == FieldColumnType.EndDate)
               {
-                label.setText(task.EndDate.format(this.Formatter));
+                label.setText(task.EndDate != null ? task.EndDate.format(this.Formatter) : "");
               }
               
               label.setBorder(BorderFactory.createLineBorder(Color.BLACK));
@@ -503,24 +579,7 @@ public class GanttchartPanel extends JPanel implements ActionListener
           // 同じ月かどうかを判断
           if (offset + 1 <= this.ActiveYearMonth.lengthOfMonth())
           {
-            LocalDate date = this.ActiveYearMonth.atDay(offset + 1);
-
-            if (date.isEqual(LocalDate.now()))
-            {
-              // 本日の場合
-              backgroundPanel.setBackground(Color.red);
-            }
-            else if ((!date.isBefore(task.StartDate)) && (!date.isAfter(task.EndDate)))
-            {
-              // タスク期間内の場合
-              backgroundPanel.setBackground(Color.yellow);
-            }
-            else
-            {
-              // 上記以外の場合
-              backgroundPanel.setBackground(Color.white);
-            }
-
+            this.SetBackgroundPanelColor(backgroundPanel, this.ActiveYearMonth.atDay(offset + 1), task.StartDate, task.EndDate);
             backgroundPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
           }
           else
@@ -534,6 +593,40 @@ public class GanttchartPanel extends JPanel implements ActionListener
       }
 
       rowIndex++;
+    }
+  }
+
+  /**
+   * 引数で入力したパネルに対応する日付とタスクの開始日終了日を元に背景色を設定
+   * @param panel 対象のJPanelインスタンス（ここで入力されたインスタンスに直接設定）
+   * @param panelDate 対象のJPanelと対応する日付
+   * @param taskStartDate タスクの開始日
+   * @param taskEndDate タスクの終了日
+   */
+  private void SetBackgroundPanelColor(JPanel panel, LocalDate panelDate, LocalDate taskStartDate, LocalDate taskEndDate)
+  {
+    if (panelDate.isEqual(this.Today))
+    {
+      // 本日の場合
+      panel.setBackground(Color.red);
+    }
+    else if (taskStartDate != null && taskEndDate != null)
+    {
+      if ((!panelDate.isBefore(taskStartDate)) && (!panelDate.isAfter(taskEndDate)))
+      {
+        // タスク期間内の場合（開始日と終了日の両方が設定されている）
+        panel.setBackground(Color.yellow);
+      }
+      else
+      {
+        // タスク期間外の場合
+        panel.setBackground(Color.white);
+      }
+    }
+    else
+    {
+      // 上記以外の場合
+      panel.setBackground(Color.white);
     }
   }
 

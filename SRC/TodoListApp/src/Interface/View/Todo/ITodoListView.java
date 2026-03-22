@@ -6,6 +6,8 @@ import java.util.List;
 import Entity.UserList;
 import Entity.UserTask;
 import Interface.Controller.Todo.ITodoListController;
+import Interface.Model.ILogger;
+import View.Todo.Listener.TodoListViewCommonListener;
 
 /*
  * リスト型表示Todo画面Viewインタフェース
@@ -21,12 +23,24 @@ public interface ITodoListView
    * 画面非表示
    */
   public void Hide();
-  
+
   /**
    * コントローラインスタンスを設定
    * @param controller コントローラインスタンス
    */
   public void SetController(ITodoListController controller);
+
+  /**
+   * リスナ対象追加
+   * @param listener 追加対象リスナインスタンス
+   */
+  public void AddListener(TodoListViewCommonListener listener);
+
+  /**
+   * リスナ対象削除
+   * @param listener 削除対象リスナインスタンス
+   */
+  public void RemoveListener(TodoListViewCommonListener listener);
 
   /**
    * リスト名設定失敗ダイアログ
@@ -42,7 +56,7 @@ public interface ITodoListView
    * リスト更新失敗ダイアログ
    */
   public void ListUpdateFailureDialog();
-  
+
   /**
    * 新規作成のリストを画面に反映
    * @param list
@@ -64,26 +78,9 @@ public interface ITodoListView
 
   /**
    * リスト更新メソッド
-   * @param listId 画面の選択中リストID
+   * @param UpdateListName 画面の編集中リスト名
    */
-  public void UpdateListClicked(int listId);
-
-  /**
-   * タスク更新メソッド
-   * @param taskId
-   */
-  public void UpdateTaskClicked(int taskId);
-
-
-  /**
-   * リスト編集ダイアログ閉
-   */
-  public void CloseListDialog();
-
-  /**
-   * タスク編集ダイアログ閉
-   */
-  public void CloseTaskDialog();
+  public void UpdateListClicked(String UpdateListName);
 
   /**
    * 新規作成のタスクを画面に反映
@@ -114,6 +111,12 @@ public interface ITodoListView
   public void TaskDeleteFailureDialog();
 
   /**
+   * タスク更新失敗ダイアログ
+   */
+  public void TaskUpdateFailureDialog();
+
+
+  /**
    * チェックボタン押下時処理
    */
   public void CheckBoxClicked(int taskid, boolean isChecked);
@@ -129,14 +132,46 @@ public interface ITodoListView
   public void EditPeriodDateClicked(int taskId);
 
   /**
-   * 期日編集ダイアログ閉
-   */
-  public void ClosePeriodDialog();
-
-  /**
    * 期日登録ダイアログ
    */
   public void PeriodButtonDialog();
 
+  /**
+   * タスク入力欄の監視
+   */
+  public void ChangeTextField(boolean isEmpty);
+
+  /**
+   * タスク入力欄の監視(cotrollerメソッド呼び出し)
+   */
+  public void ChangeTextField(String taskText);
+
+  /**
+   * タスク取得失敗ダイアログ表示
+   */
+  public void GetTaskFailureDialog();
+
+  /**
+   * リスト情報取得失敗時ダイアログ表示
+   */
+  public void ShowGetUserListFailureDialog();
+
+  /**
+   * 左側パネルの要素押下可否設定メソッド
+   * @param isDisabled 押下不可にする場合true、押下可能にする場合false
+   */
+  public void SideElementDisabled(boolean isDisabled);
+
+  /**
+   * 右側パネルの要素押下可否設定メソッド
+   * @param isDisabled 押下不可にする場合true、押下可能にする場合false
+   */
+  public void LeftElementDisabled(boolean isDisabled);
+
+  /**
+    * ロガーインスタンスを依存性注入する
+    * @param ロガーインスタンス
+    */
+  public void SetLogger(ILogger logger);
 
 }

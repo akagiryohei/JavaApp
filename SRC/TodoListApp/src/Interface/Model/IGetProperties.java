@@ -13,4 +13,9 @@ public interface IGetProperties
    * @return 取得対象の設定値
    */
   public String getProperty(PropertyKey key);
+
+  /**
+   * ファイルをロードする
+   */
+  public void Load();
 }

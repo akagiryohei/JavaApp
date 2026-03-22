@@ -10,7 +10,7 @@ public class UserTask {
     // 終了年月日
     public String endDate;
     // タスクの状態
-    public int taskStatus;
+    public Boolean taskStatus;
     // リストID
     public int list_id;
     // 進捗率
@@ -25,7 +25,7 @@ public class UserTask {
         this.taskText = "";
         this.startDate = "";
         this.endDate = "";
-        this.taskStatus = 0;
+        this.taskStatus = false;
         this.list_id = 0;
     }
 

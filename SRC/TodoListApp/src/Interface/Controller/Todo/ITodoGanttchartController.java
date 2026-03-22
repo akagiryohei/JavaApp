@@ -2,6 +2,7 @@ package Interface.Controller.Todo;
 
 import java.time.YearMonth;
 
+import Interface.Model.ILogger;
 import Interface.View.Todo.ITodoGanttchartView;
 
 /*
@@ -64,10 +65,17 @@ public interface ITodoGanttchartController
    */
   public void GetUserTask(int listId, String listName, YearMonth activeYearMonth);
 
-    /**
-     * タスク編集（タスク進捗度＋完了/未完了）
-     * @param taskId 画面の選択中タスクID
-     * @param progress 画面の選択中タスクの進捗率
-     */
-    public void UpdateTask(int taskId, int progress, int listId, String listName, YearMonth activeYearMonth);
+  /**
+   * タスク編集（タスク進捗度＋完了/未完了）
+   * @param taskId 画面の選択中タスクID
+   * @param progress 画面の選択中タスクの進捗率
+   */
+  public void UpdateTask(int taskId, int progress, int listId, String listName, YearMonth activeYearMonth);
+
+  /**
+  * ロガーインスタンスを依存性注入する
+  * @param ロガーインスタンス
+  */
+  public void SetLogger(ILogger logger);
+
 }

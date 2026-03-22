@@ -9,6 +9,13 @@
             "name": "TodoListApp",
             "request": "launch",
             "mainClass": "TodoListApp",
+            "projectName": "TodoListApp_fb501a1c"
+        },
+        {
+            "type": "java",
+            "name": "TodoListApp",
+            "request": "launch",
+            "mainClass": "TodoListApp",
             "projectName": "TodoListApp_ee6d4c3f"
         },
         {

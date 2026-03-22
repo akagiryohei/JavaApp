@@ -1,5 +1,6 @@
 package Controller.Todo;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,11 +8,12 @@ import java.util.List;
 import Controller.ControllerBase;
 import Entity.GanttchartTask;
 import Entity.UserList;
-import Entity.UserTask;
+import Entity.Enum.LogLevel;
 import Entity.Enum.ViewStateEnum;
 import Interface.Controller.Todo.ITodoGanttchartController;
 import Interface.Model.Process.Todo.ITodoProcess.ResultType;
 import Interface.Model.Todo.ITodoGanttchartModel;
+import Interface.View.IViewProxyUtil;
 import Interface.View.Todo.ITodoGanttchartView;
 
 /*
@@ -28,15 +30,19 @@ public class TodoGanttchartController extends ControllerBase implements ITodoGan
     // Modelインスタンス
     private ITodoGanttchartModel Model;
 
+    // 画面ラップ処理インスタンス
+    private IViewProxyUtil ViewProxyUtil;
+
     /** 選択中リスト名 */
     private String ListName;
 
     /**
      * コンストラクタ
      */
-    public TodoGanttchartController(ITodoGanttchartView view, ITodoGanttchartModel model)
+    public TodoGanttchartController(ITodoGanttchartView view, ITodoGanttchartModel model, IViewProxyUtil viewProxyUtil)
     {
-        this.View = view;
+        this.ViewProxyUtil = viewProxyUtil;
+        this.View = this.ViewProxyUtil.WrapView(ITodoGanttchartView.class, view);
         this.Model = model;
 
         // 画面状態を設定
@@ -66,7 +72,7 @@ public class TodoGanttchartController extends ControllerBase implements ITodoGan
     // 画面のインスタンスを取得
     public ITodoGanttchartView GetViewInstance()
     {
-        return this.View;
+        return this.ViewProxyUtil.UnwrapView(this.View); 
     }
 
     /**
@@ -76,13 +82,23 @@ public class TodoGanttchartController extends ControllerBase implements ITodoGan
     {
         this.Model.GetUserList((isBusy) ->
         {
-            // TODO:isBusyの値によって、viewのボタン等の要素の押下可否を制御
-            System.out.println(isBusy);
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> {
+                logger.WriteLog(LogLevel.Info, "ユーザーリスト取得状況：" + isBusy);
+            });
         }, (result) -> {
-            //View側で保持するメソッドを作る
-            List<UserList> list = new ArrayList<UserList>();
-            list = result.Value2;
-            this.View.SetList(list);
+            if(result.Value1 == ResultType.Success)
+            {
+                //View側で保持するメソッドを作る
+                List<UserList> list = new ArrayList<UserList>();
+                list = result.Value2;
+                this.View.SetList(list);
+            }
+            else
+            {
+                this.View.GetListFailureDialog();
+            }
         });
     }
 
@@ -95,8 +111,11 @@ public class TodoGanttchartController extends ControllerBase implements ITodoGan
     public void CreateUserList(String listText)
     {
         this.Model.CreateUserList(listText, (isBusy) -> {
-            // TODO:isBusyの値によって、viewのボタン等の要素の押下可否を制御
-            System.out.println(isBusy);
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> {
+                logger.WriteLog(LogLevel.Info, "ユーザーリスト登録状況：" + isBusy);
+            });
         }, (result) -> {
             if (result == ResultType.Success)
             {
@@ -125,14 +144,20 @@ public class TodoGanttchartController extends ControllerBase implements ITodoGan
      */
     public void DeleteList(int listId)
     {
+        // DB問い合わせ後に本日の判定で使用する日時をこのタイミングで取得する
+        LocalDate today = LocalDate.now();
+
         this.Model.DeleteList(listId, (isBusy) -> {
-            // TODO:isBusyの値によって、viewのボタン等の要素の押下可否を制御
-            System.out.println(isBusy);
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> {
+                logger.WriteLog(LogLevel.Info, "リスト削除の状況：" + isBusy);
+            });
         }, (result) -> {
             if (result == ResultType.Success)
             {
                 this.GetUserList();
-                this.View.SetTask(new ArrayList<GanttchartTask>(), "", null);
+                this.View.SetTask(new ArrayList<GanttchartTask>(), "", null, today);
             }
             else
             {
@@ -149,12 +174,14 @@ public class TodoGanttchartController extends ControllerBase implements ITodoGan
     public void UpdateList(int listId, String listName)
     {
         this.Model.UpdateList(listId, listName, (isBusy) -> {
-            // TODO:isBusyの値によって、viewのボタン等の要素の押下可否を制御
-            System.out.println(isBusy);
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> {
+                logger.WriteLog(LogLevel.Info, "リスト編集状況：" + isBusy);
+            });
         }, (result) -> {
             if (result == ResultType.Success)
             {
-                this.View.CloseListDialog();
                 this.GetUserList();
             }
             else
@@ -173,16 +200,30 @@ public class TodoGanttchartController extends ControllerBase implements ITodoGan
      */
     public void GetUserTask(int listId, String listName, YearMonth activeYearMonth)
     {
+        // DB問い合わせ後に本日の判定で使用する日時をこのタイミングで取得する
+        LocalDate today = LocalDate.now();
+
         this.ListName = listName;
         this.Model.GetUserTask(listId, activeYearMonth, (isBusy) -> {
-            // TODO:isBusyの値によって、viewのボタン等の要素の押下可否を制御
-            System.out.println(isBusy);
-        }, (result) -> {
-            List<GanttchartTask> task = new ArrayList<GanttchartTask>();
-            result.Value2.forEach(item -> {
-                task.add(item.Clone());
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> {
+                logger.WriteLog(LogLevel.Info, "タスク取得状況：" + isBusy);
             });
-            this.View.SetTask(task, this.ListName, activeYearMonth);
+        }, (result) -> {
+            if(result.Value1 == ResultType.Success)
+            {
+                List<GanttchartTask> task = new ArrayList<GanttchartTask>();
+                result.Value2.forEach(item -> {
+                task.add(item.Clone());
+                });
+                this.View.SetTask(task, this.ListName, activeYearMonth, today);
+            }
+            else
+            {
+                this.View.SetTask(new ArrayList<GanttchartTask>(), this.ListName, activeYearMonth, today);
+                this.View.GetTaskFailureDialog();
+            }
         });
     }
     
@@ -194,9 +235,20 @@ public class TodoGanttchartController extends ControllerBase implements ITodoGan
     public void UpdateTask(int taskId, int progress, int listId, String listName, YearMonth activeYearMonth)
     {
         this.Model.UpdateTask(taskId, progress, (isBusy) -> {
-            System.out.println(isBusy);
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> {
+                logger.WriteLog(LogLevel.Info, "タスク更新状況：" + isBusy);
+            });
         }, (result) -> {
-            this.GetUserTask(listId, listName, activeYearMonth);
+            if(result == ResultType.Success)
+            {
+                this.GetUserTask(listId, listName, activeYearMonth);
+            }
+            else
+            {
+                this.View.UpdateTaskFailureDialog();
+            }
         });
     }
 }

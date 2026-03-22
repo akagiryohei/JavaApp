@@ -22,6 +22,7 @@ import Interface.Model.Login.ILoginModel;
 import Interface.Model.Login.ILostPassUserModel;
 import Interface.Model.Login.ISignupModel;
 import Interface.View.IMainWindowView;
+import Interface.View.IViewProxyUtil;
 import Interface.View.Login.ILoginView;
 import Interface.View.Login.ILostPassUserView;
 import Interface.View.Login.ISignupView;
@@ -40,6 +41,9 @@ public class LoginBaseDI implements ILoginBaseDI
   // DB処理キューインスタンス
   private ExecutorService DBQueue;
 
+  // 画面ラップ処理インスタンス
+  private IViewProxyUtil ViewProxyUtil;
+
   // 親要素のインスタンス
   private IMainWindowView MainWindowViewInstance;
 
@@ -47,13 +51,14 @@ public class LoginBaseDI implements ILoginBaseDI
   private CommonDialogView CommonDialogViewInstance;
 
   // コンストラクタ
-  public LoginBaseDI(ILogger logger, IDBClient dbClient, ExecutorService dbQueue, IMainWindowView mainWindowView, CommonDialogView commonDialogView)
+  public LoginBaseDI(ILogger logger, IDBClient dbClient, ExecutorService dbQueue, IMainWindowView mainWindowView, CommonDialogView commonDialogView, IViewProxyUtil viewProxyUtil)
   {
     this.Logger = logger;
     this.DBClient = dbClient;
     this.DBQueue = dbQueue;
     this.MainWindowViewInstance = mainWindowView;
     this.CommonDialogViewInstance = commonDialogView;
+    this.ViewProxyUtil = viewProxyUtil;
   }
 
   // 依存性注入したLoginコントローラオブジェクトを生成する
@@ -65,7 +70,7 @@ public class LoginBaseDI implements ILoginBaseDI
     ReminderDialogView reminderDialogView = new ReminderDialogView((JFrame)this.MainWindowViewInstance);
     ILoginView loginView = new LoginView(this.CommonDialogViewInstance, reminderDialogView);
     loginView.SetLogger(this.Logger);
-    ILoginController loginController = new LoginController(loginView, loginModel);
+    ILoginController loginController = new LoginController(loginView, loginModel, this.ViewProxyUtil);
     loginController.SetLogger(this.Logger);
     loginView.SetController(loginController);
 
@@ -78,9 +83,9 @@ public class LoginBaseDI implements ILoginBaseDI
     IValidationUtil util = new ValidationUtil();
     ILoginProcess loginProcess = new LoginProcess(this.DBClient, this.DBQueue);
     ISignupModel signupModel = new SignupModel(this.Logger, loginProcess, util);
-    ISignupView signupView = new SignupView(this.MainWindowViewInstance, this.CommonDialogViewInstance);
+    ISignupView signupView = new SignupView(this.CommonDialogViewInstance);
     signupView.SetLogger(this.Logger);
-    ISignupController signupController = new SignupController(signupView, signupModel);
+    ISignupController signupController = new SignupController(signupView, signupModel, this.ViewProxyUtil);
     signupController.SetLogger(this.Logger);
     signupView.SetController(signupController);
     
@@ -93,9 +98,9 @@ public class LoginBaseDI implements ILoginBaseDI
     IValidationUtil util = new ValidationUtil();
     ILoginProcess loginProcess = new LoginProcess(this.DBClient, this.DBQueue);
     ILostPassUserModel lostPassUserModel = new LostPassUserModel(this.Logger, loginProcess, util);
-    ILostPassUserView lostPassUserView = new LostPassUserView(this.MainWindowViewInstance, this.CommonDialogViewInstance);
+    ILostPassUserView lostPassUserView = new LostPassUserView(this.CommonDialogViewInstance, new ReminderDialogView((JFrame)this.MainWindowViewInstance));
     lostPassUserView.SetLogger(this.Logger);
-    ILostPassUserController lostPassUserController = new LostPassUserController(lostPassUserView, lostPassUserModel);
+    ILostPassUserController lostPassUserController = new LostPassUserController(lostPassUserView, lostPassUserModel, this.ViewProxyUtil);
     lostPassUserController.SetLogger(this.Logger);
     lostPassUserView.SetController(lostPassUserController);
 

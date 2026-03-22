@@ -1,5 +1,6 @@
 package Interface.Controller.Todo;
 
+import Interface.Model.ILogger;
 import Interface.View.Todo.ITodoBoardView;
 
 /*
@@ -72,4 +73,9 @@ public interface ITodoBoardController
      */
     public void CreateUserList(String listText);
 
+    /**
+    * ロガーインスタンスを依存性注入する
+    * @param ロガーインスタンス
+    */
+    public void SetLogger(ILogger logger);
 }

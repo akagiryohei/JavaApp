@@ -6,6 +6,7 @@ import Entity.Enum.ViewStateEnum;
 import Interface.Controller.Login.ISignupController;
 import Interface.Model.Login.ISignupModel;
 import Interface.Model.Process.Login.ILoginProcess.ResultType;
+import Interface.View.IViewProxyUtil;
 import Interface.View.Login.ISignupView;
 
 /*
@@ -22,10 +23,14 @@ public class SignupController extends ControllerBase implements ISignupControlle
   // Modelインスタンス
   private ISignupModel Model;
 
+  /** 画面ラップ処理インスタンス */
+  private IViewProxyUtil ViewProxyUtil;
+
   // コンストラクタ
-  public SignupController(ISignupView view, ISignupModel model)
+  public SignupController(ISignupView view, ISignupModel model, IViewProxyUtil viewProxyUtil)
   {
-    this.View = view;
+    this.ViewProxyUtil = viewProxyUtil;
+    this.View = this.ViewProxyUtil.WrapView(ISignupView.class, view);
     this.Model = model;
 
     // 画面状態を設定
@@ -57,7 +62,7 @@ public class SignupController extends ControllerBase implements ISignupControlle
   // 画面のインスタンスを取得
   public ISignupView GetViewInstance()
   {
-    return this.View;
+    return this.ViewProxyUtil.UnwrapView(this.View);
   }
 
   public void SignupAuth(String userName, String passWord, String secretTipsId, String secretPassWord)

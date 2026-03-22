@@ -5,15 +5,17 @@ import java.util.Date;
 import java.util.List;
 
 import Controller.ControllerBase;
+import Entity.Pair;
 import Entity.UserList;
 import Entity.UserTask;
-import Entity.DB.InputTask;
+import Entity.Enum.LogLevel;
 import Entity.Enum.ViewStateEnum;
 import Interface.Controller.Todo.ITodoListController;
+import Interface.Model.Process.Todo.ITodoProcess;
 import Interface.Model.Process.Todo.ITodoProcess.ResultType;
 import Interface.Model.Todo.ITodoListModel;
+import Interface.View.IViewProxyUtil;
 import Interface.View.Todo.ITodoListView;
-import Entity.Dialog.Constants;
 
 /*
  * Todoリスト（リスト型表示）コントローラ
@@ -29,8 +31,8 @@ public class TodoListController extends ControllerBase implements ITodoListContr
     /** Modelインスタンス */
     private ITodoListModel Model;
 
-    /** 取得タスク */
-    private List<UserTask> Task;
+    /** 画面ラップ処理インスタンス */
+    private IViewProxyUtil ViewProxyUtil;
 
     /** 選択中リスト名 */
     private String ListName;
@@ -39,10 +41,12 @@ public class TodoListController extends ControllerBase implements ITodoListContr
      * 依存性注入
      * @param view 画面Viewインスタンス
      * @param model 画面Modelインスタンス
+     * @param viewProxyUtil 画面ラップ処理インスタンス
      */
-    public TodoListController(ITodoListView view, ITodoListModel model)
+    public TodoListController(ITodoListView view, ITodoListModel model, IViewProxyUtil viewProxyUtil)
     {
-        this.View = view;
+        this.ViewProxyUtil = viewProxyUtil;
+        this.View = this.ViewProxyUtil.WrapView(ITodoListView.class, view);
         this.Model = model;
 
         // 画面状態を設定
@@ -79,7 +83,7 @@ public class TodoListController extends ControllerBase implements ITodoListContr
      */
     public ITodoListView GetViewInstance()
     {
-        return this.View;
+        return this.ViewProxyUtil.UnwrapView(this.View);
     }
 
     /**
@@ -96,8 +100,15 @@ public class TodoListController extends ControllerBase implements ITodoListContr
         }, (result) -> {
             //View側で保持するメソッドを作る
             List<UserList> list = new ArrayList<UserList>();
-            list = result.Value2;
-            this.View.SetList(list);
+            if(result.Value1 == ResultType.Success)
+            {
+                list = result.Value2;
+                this.View.SetList(list);
+            }
+            else
+            {
+                this.View.ShowGetUserListFailureDialog();
+            }
         });
     }
 
@@ -110,8 +121,9 @@ public class TodoListController extends ControllerBase implements ITodoListContr
     public void CreateUserList(String listText)
     {
         this.Model.CreateUserList(listText, (isBusy) -> {
-            // TODO:isBusyの値によって、viewのボタン等の要素の押下可否を制御
-            System.out.println(isBusy);
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リスト登録の状況：" + isBusy); });
         }, (result) -> {
             if (result == ResultType.Success)
             {
@@ -143,11 +155,7 @@ public class TodoListController extends ControllerBase implements ITodoListContr
                 this.Model.GetUserTask((isBusy) -> {
                     System.out.println(isBusy);
                 }, (resultType2) -> {
-                    List<UserTask> task = new ArrayList<UserTask>();
-                    resultType2.Value2.forEach(item -> {
-                        task.add(item.Clone());
-                    });
-                    this.View.SetTask(task, this.ListName);
+                    this.NotifyCommonUserTaskResultToView(resultType2);
                 });
             }
             else
@@ -157,6 +165,28 @@ public class TodoListController extends ControllerBase implements ITodoListContr
             }
         });
     }
+
+    /**
+     * タスク取得処理（共通処理）
+     */
+    public void NotifyCommonUserTaskResultToView(Pair<ITodoProcess.ResultType, List<UserTask>> resultType2)
+    {
+        if (resultType2.Value1 == ResultType.Success)
+        {
+            List<UserTask> task = new ArrayList<UserTask>();
+            resultType2.Value2.forEach(item -> {
+                task.add(item.Clone());
+            });
+            this.View.SetTask(task, this.ListName);
+        }
+        else
+        {
+            // タスク取得失敗ダイアログ表示
+            this.View.GetTaskFailureDialog();
+        }
+    }
+
+
     /**
      * リスト削除メソッド
      * @param listId 画面選択リストID
@@ -166,8 +196,9 @@ public class TodoListController extends ControllerBase implements ITodoListContr
     public void DeleteList(int listId)
     {
         this.Model.DeleteList(listId, (isBusy) -> {
-            // TODO:isBusyの値によって、viewのボタン等の要素の押下可否を制御
-            System.out.println(isBusy);
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リスト削除の状況：" + isBusy); });
         }, (result) -> {
             if (result == ResultType.Success)
             {
@@ -191,12 +222,36 @@ public class TodoListController extends ControllerBase implements ITodoListContr
     {
         this.Model.UpdateList(listId, listName, (isBusy) -> {
             // TODO:isBusyの値によって、viewのボタン等の要素の押下可否を制御
-            System.out.println(isBusy);
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リスト名更新の状況：" + isBusy); });
         }, (result) -> {
             if (result == ResultType.Success)
             {
-                this.View.CloseListDialog();
+                this.ListName = listName;
+                // リスト編集
                 this.GetUserList();
+                // タスク再取得
+                this.Model.GetUserTask((isBusy) -> {
+                    this.View.SideElementDisabled(isBusy);
+                    this.View.LeftElementDisabled(isBusy);
+                    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "タスク再取得中か否か：" + isBusy); });
+                }, (resultType2) -> {
+                    if (resultType2.Value1 == ResultType.Success)
+                    {
+                        List<UserTask> task = new ArrayList<UserTask>();
+                        resultType2.Value2.forEach(item -> {
+                            task.add(item.Clone());
+                        });
+                        this.View.SetTask(task, this.ListName);
+                        this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リスト名更新完了"); });
+                    }
+                    else
+                    {
+                        // タスク取得失敗ダイアログ表示
+                        this.View.GetTaskFailureDialog();
+                    }
+                });
             }
             else
             {
@@ -214,26 +269,22 @@ public class TodoListController extends ControllerBase implements ITodoListContr
     public void UpdateTask(int taskId, String taskText)
     {
         this.Model.UpdateTask(taskId, taskText, (isBusy) -> {
-            // TODO:isBusyの値によって、viewのボタン等の要素の押下可否を制御
-            System.out.println(isBusy);
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "タスク名更新の状況：" + isBusy); });
         }, (result) -> {
             if (result == ResultType.Success)
             {
-                this.View.CloseTaskDialog();
                 this.Model.GetUserTask((isBusy) -> {
-                    System.out.println(isBusy);
+                    this.View.SideElementDisabled(isBusy);
+                    this.View.LeftElementDisabled(isBusy);
+                    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "タスク再取得中か否か：" + isBusy); });
                 }, (resultType2) -> {
-                    List<UserTask> task = new ArrayList<UserTask>();
-                    resultType2.Value2.forEach(item -> {
-                        task.add(item.Clone());
-                    });
-                    this.View.SetTask(task, this.ListName);
+                    this.NotifyCommonUserTaskResultToView(resultType2);
                 });
             }
             else{
-                // TODO:リスト登録失敗とDB接続失敗を分けて処理を記述
-                // TODO:共通ダイアログで〇〇ダイアログを表示する処理を実装
-                this.View.TaskDeleteFailureDialog();
+                this.View.TaskUpdateFailureDialog();
             }
         });
     }
@@ -252,16 +303,23 @@ public class TodoListController extends ControllerBase implements ITodoListContr
                 this.Model.GetUserTask((isBusy) -> {
                     System.out.println(isBusy);
                 }, (resultType2) -> {
-                    List<UserTask> task = new ArrayList<UserTask>();
-                    resultType2.Value2.forEach(item -> {
-                        task.add(item.Clone());
-                    });
-                    this.View.SetTask(task, this.ListName);
+                    if (resultType2.Value1 == ResultType.Success)
+                    {
+                        List<UserTask> task = new ArrayList<UserTask>();
+                        resultType2.Value2.forEach(item -> {
+                            task.add(item.Clone());
+                        });
+                        this.View.SetTask(task, this.ListName);
+                    }
+                    else
+                    {
+                        // タスク取得失敗ダイアログ表示
+                        this.View.GetTaskFailureDialog();
+                    }
                 });
             }
             else{
-                // TODO:リスト登録失敗とDB接続失敗を分けて処理を記述
-                this.View.TaskDeleteFailureDialog();
+                this.View.TaskUpdateFailureDialog();
             }
         });
     }
@@ -272,19 +330,18 @@ public class TodoListController extends ControllerBase implements ITodoListContr
     public void EditPeriodDate(int taskId, Date startDate, Date endDate)
     {
         this.Model.EditPeriodDate(taskId, startDate, endDate, (isBusy) -> {
-            System.out.println(isBusy);
+            this.View.SideElementDisabled(isBusy);
+            this.View.LeftElementDisabled(isBusy);
+            this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "期日編集の状況：" + isBusy); });
         }, (result) -> {
             if (result == ResultType.Success)
             {
-                this.View.ClosePeriodDialog();
                 this.Model.GetUserTask((isBusy) -> {
-                    System.out.println(isBusy);
+                    this.View.SideElementDisabled(isBusy);
+                    this.View.LeftElementDisabled(isBusy);
+                    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "タスク再取得中か否か：" + isBusy); });
                 }, (resultType2) -> {
-                    List<UserTask> task = new ArrayList<UserTask>();
-                    resultType2.Value2.forEach(item -> {
-                        task.add(item.Clone());
-                    });
-                    this.View.SetTask(task, this.ListName);
+                    this.NotifyCommonUserTaskResultToView(resultType2);
                 });
             }
             else {
@@ -306,11 +363,7 @@ public class TodoListController extends ControllerBase implements ITodoListContr
             // TODO:isBusyの値によって、viewのボタン等の要素の押下可否を制御
             System.out.println(isBusy);
         }, (result) -> {
-            List<UserTask> task = new ArrayList<UserTask>();
-            result.Value2.forEach(item -> {
-                task.add(item.Clone());
-            });
-            this.View.SetTask(task, this.ListName);
+            this.NotifyCommonUserTaskResultToView(result);
         });
     }
 
@@ -336,11 +389,19 @@ public class TodoListController extends ControllerBase implements ITodoListContr
                 this.Model.GetUserTask((isBusy) -> {
                     System.out.println(isBusy);
                 }, (resultType2) -> {
-                    List<UserTask> task = new ArrayList<UserTask>();
-                    resultType2.Value2.forEach(item -> {
-                        task.add(item.Clone());
-                    });
-                    this.View.SetTask(task, this.ListName);
+                    if (resultType2.Value1 == ResultType.Success)
+                    {
+                        List<UserTask> task = new ArrayList<UserTask>();
+                        resultType2.Value2.forEach(item -> {
+                            task.add(item.Clone());
+                        });
+                        this.View.SetTask(task, this.ListName);
+                    }
+                    else
+                    {
+                        // タスク取得失敗ダイアログ表示
+                        this.View.GetTaskFailureDialog();
+                    }
                 });
             }
             else
@@ -350,6 +411,15 @@ public class TodoListController extends ControllerBase implements ITodoListContr
                 this.View.TaskDeleteFailureDialog();
             }
         });
+    }
+
+    /**
+     * 入力欄のイベント情報の変化が発生した
+     * @param taskText タスク入力欄の文字列
+     */
+    public void ChangeTextField(String taskText)
+    {
+        this.View.ChangeTextField(this.Model.GetPlusButtonPossibility(taskText));
     }
 
 }

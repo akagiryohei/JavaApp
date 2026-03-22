@@ -3,7 +3,9 @@ package Controller.Todo;
 import Controller.ControllerBase;
 import Entity.Enum.ViewStateEnum;
 import Interface.Controller.Todo.ITodoListBaseController;
+import Interface.View.IViewProxyUtil;
 import Interface.View.Todo.ITodoListBaseView;
+import View.ViewProxyUtil;
 
 /*
  * Todoリスト全般対応コントローラ
@@ -16,12 +18,15 @@ public class TodoListBaseController extends ControllerBase implements ITodoListB
     // Viewインスタンス
     private ITodoListBaseView View;
 
+    // 画面ラップ処理インスタンス
+    private IViewProxyUtil ViewProxyUtil;
 
     // コンストラクタ
-    public TodoListBaseController(ITodoListBaseView view)
+    public TodoListBaseController(ITodoListBaseView view, IViewProxyUtil viewProxyUtil)
     {
-        this.View = view;
-    
+        this.ViewProxyUtil = viewProxyUtil;
+        this.View = this.ViewProxyUtil.WrapView(ITodoListBaseView.class, view);
+
         // 画面状態を設定
         this.ViewState = ViewStateEnum.Close;
     }
@@ -48,7 +53,7 @@ public class TodoListBaseController extends ControllerBase implements ITodoListB
 
     public ITodoListBaseView GetViewInstance()
     {
-        return this.View;
+        return this.ViewProxyUtil.UnwrapView(this.View);
     }
 
 }

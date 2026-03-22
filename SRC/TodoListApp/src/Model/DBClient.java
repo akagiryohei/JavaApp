@@ -12,6 +12,7 @@ import com.mysql.cj.exceptions.CJCommunicationsException;
 
 import Entity.DB.User;
 import Interface.Model.IDBClient;
+import Interface.Model.ILogger;
 import Entity.DB.DBClientDtoPair;
 import Entity.DB.DBResultType;
 import Entity.DB.InputTask;
@@ -23,6 +24,12 @@ import Entity.DB.TaskColumn;
   */
 public class DBClient implements IDBClient
 {
+  /** 取得上限件数（リスト） */
+  private final int ListLimit = 1000;
+
+  /** 取得上限件数（タスク） */
+  private final int TaskLimit = 500;
+
   /** DB接続文字列 */
   private String ConnectionString;
 
@@ -38,6 +45,9 @@ public class DBClient implements IDBClient
   /** DBパスワード */
   private String DBPassword;
   
+  /** ロガーインスタンス */
+  private ILogger Logger;
+
   /**
    * コンストラクタ
    * 依存性注入
@@ -47,13 +57,14 @@ public class DBClient implements IDBClient
    * @param dbUserName DBユーザ名
    * @param dbPassword DBパスワード
   */
-  public DBClient(String connectionString, String dbDriver, String dbName, String dbUserName, String dbPassword)
+  public DBClient(String connectionString, String dbDriver, String dbName, String dbUserName, String dbPassword, ILogger logger)
   {
     this.ConnectionString = connectionString;
     this.DBDriverString = dbDriver;
     this.DBName = dbName;
     this.DBUserName = dbUserName;
     this.DBPassword = dbPassword;
+    this.Logger = logger;
   }
 
   /**
@@ -105,8 +116,9 @@ public class DBClient implements IDBClient
       }
       result = DBResultType.Success;
     }
-    catch (ClassNotFoundException | SQLException e)// akagi エラーがあるときはキャッチする
+    catch (ClassNotFoundException | SQLException e)
     {
+      user = new User();
       result = this.GetErrorResult(e.getCause());
     }
 
@@ -131,7 +143,11 @@ public class DBClient implements IDBClient
     builder.append(".list ");
     builder.append("WHERE ");
     builder.append("user_id=");
-    builder.append("?;");
+    builder.append("? ");
+    builder.append("ORDER BY id DESC ");
+    builder.append("LIMIT ");
+    builder.append(this.ListLimit);
+    builder.append(";");
 
     try (
       Connection con = this.GetConnection();
@@ -154,6 +170,7 @@ public class DBClient implements IDBClient
     }
     catch (ClassNotFoundException | SQLException e)
     {
+      list.clear();
       result = this.GetErrorResult(e.getCause());
     }
 
@@ -163,12 +180,11 @@ public class DBClient implements IDBClient
   /**
    * リスト登録メソッド
    */
-  public DBResultType InsertList(String listText, int userID)
+  public DBClientDtoPair<DBResultType, Integer> InsertList(String listText, int userID)
   {
     DBResultType result = DBResultType.Failure;
-    int rs = 0;
+    int generatedId = 0;
 
-    //INSERT INTO todojava_db.list(`list_name`, `user_id`) VALUES ('涙の訳','1');
     StringBuilder builder = new StringBuilder();
     builder.append("INSERT ");
     builder.append("INTO ");
@@ -185,13 +201,19 @@ public class DBClient implements IDBClient
 
     try (
       Connection con = this.GetConnection();
-      PreparedStatement pstmt = con.prepareStatement(builder.toString());
+      PreparedStatement pstmt = con.prepareStatement(builder.toString(), PreparedStatement.RETURN_GENERATED_KEYS);
     )
     {
       pstmt.setString(1, listText);
       pstmt.setInt(2, userID);
 
-      rs = pstmt.executeUpdate();//akagi 実行結果をここに入れてる
+      // 自動採番されたキーを取得
+      int affectedRows = pstmt.executeUpdate();
+
+      ResultSet rs = pstmt.getGeneratedKeys();
+      if (rs.next()) {
+        generatedId = rs.getInt(1);
+      }
 
       result = DBResultType.Success;
     }
@@ -200,7 +222,7 @@ public class DBClient implements IDBClient
       result = this.GetErrorResult(e.getCause());
     }
 
-    return result;
+    return new DBClientDtoPair<DBResultType, Integer>(result, generatedId);
   }
 
   /**
@@ -208,9 +230,7 @@ public class DBClient implements IDBClient
   */
   public DBResultType UpdateList(String listName, int userID)
   {
-    //UPDATE `list` SET `list_name`='転職', WHERE id = 1;
     DBResultType result = DBResultType.Failure;
-    int rs = 0;
 
     StringBuilder builder = new StringBuilder();
     builder.append("UPDATE ");
@@ -231,7 +251,7 @@ public class DBClient implements IDBClient
       pstmt.setString(1, listName);
       pstmt.setInt(2, userID);
       
-      rs = pstmt.executeUpdate();
+      pstmt.executeUpdate();
 
       result = DBResultType.Success;
     }
@@ -250,8 +270,6 @@ public class DBClient implements IDBClient
   public DBResultType DeleteList(int listID, int userID)
   {
     DBResultType result = DBResultType.Failure;
-    //DELETE FROM todojava_db.list WHERE user_id = 1 AND id = 1;
-    int rs = 0;
 
     StringBuilder listBuilder = new StringBuilder();
     listBuilder.append("DELETE ");
@@ -293,11 +311,8 @@ public class DBClient implements IDBClient
         listPstmt.setInt(2, listID);
         taskPstmt.setInt(1, userID);
         taskPstmt.setInt(2, listID);
-        rs = listPstmt.executeUpdate();
-        if (rs != 0)
-        {
-          rs = taskPstmt.executeUpdate();
-        }
+        taskPstmt.executeUpdate();
+        listPstmt.executeUpdate();
         con.commit();
         con.setAutoCommit(true);
         result = DBResultType.Success;
@@ -332,7 +347,6 @@ public class DBClient implements IDBClient
    */
   public DBClientDtoPair<DBResultType, List<TaskColumn>> GetTask(int userID, int listID)
   {
-    // SELECT * FROM todojava_db.task WHERE user_id = 1 AND list_id = 1;
     DBResultType result = DBResultType.Failure;
     List<TaskColumn> taskList = new ArrayList<TaskColumn>();
 
@@ -347,7 +361,11 @@ public class DBClient implements IDBClient
     builder.append("? ");
     builder.append(" AND ");
     builder.append("list_id= ");
-    builder.append("?;");
+    builder.append("? ");
+    builder.append("ORDER BY id DESC ");
+    builder.append("LIMIT ");
+    builder.append(this.TaskLimit);
+    builder.append(";");
 
     try (
       Connection con = this.GetConnection();
@@ -376,6 +394,7 @@ public class DBClient implements IDBClient
     }
     catch (ClassNotFoundException | SQLException e)
     {
+      taskList.clear();
       result = this.GetErrorResult(e.getCause());
     }
 
@@ -387,7 +406,6 @@ public class DBClient implements IDBClient
    */
   public DBClientDtoPair<DBResultType, List<TaskColumn>> GetUnFinishedTask(int userID)
   {
-    // SELECT * FROM todojava_db.task WHERE user_id = 1 AND list_id = 1;
     DBResultType result = DBResultType.Failure;
     List<TaskColumn> taskList = new ArrayList<TaskColumn>();
 
@@ -410,7 +428,12 @@ public class DBClient implements IDBClient
     builder.append("? ");
     builder.append("AND ");
     builder.append("task.task_status=");
-    builder.append("FALSE");
+    builder.append("FALSE ");
+    builder.append("ORDER BY task.id DESC ");
+    builder.append("LIMIT ");
+    builder.append(this.TaskLimit);
+    builder.append(";");
+
 
     try (
       Connection con = this.GetConnection();
@@ -434,6 +457,7 @@ public class DBClient implements IDBClient
     }
     catch (ClassNotFoundException | SQLException e)
     {
+      taskList.clear();
       result = this.GetErrorResult(e.getCause());
     }
 
@@ -445,9 +469,7 @@ public class DBClient implements IDBClient
    */
   public DBResultType CreateTask(InputTask inputTask)
   {
-    // INSERT INTO todojava_db.task(`task_text`, `start_date`, `end_date`, `user_id`, `list_id`) VALUES ('新宮に行く','2025-03-24 12:12:12','2025-03-30 00:00:00','1','1');
     DBResultType result = DBResultType.Failure;
-    int rs = 0;
 
     StringBuilder builder = new StringBuilder();
     builder.append("INSERT ");
@@ -494,10 +516,10 @@ public class DBClient implements IDBClient
         pstmt.setNull(3,java.sql.Types.DATE);
       }
 
-      pstmt.setInt(4, inputTask.UserId);//akagiプレースホルダーのパラメータのキーを選択してる(1とかで)
-      pstmt.setInt(5, inputTask.ListId);//akagiプレースホルダーのパラメータのキーを選択してる(1とかで)
+      pstmt.setInt(4, inputTask.UserId);
+      pstmt.setInt(5, inputTask.ListId);
 
-      rs = pstmt.executeUpdate();
+      pstmt.executeUpdate();
       result = DBResultType.Success;
     }
     catch (ClassNotFoundException | SQLException e)
@@ -509,13 +531,139 @@ public class DBClient implements IDBClient
   }
 
   /**
+   * 複数タスク登録メソッド
+   * @param inputTasks 登録タスクリスト
+   * @return 処理結果
+   */
+  public DBResultType CreateTasks(List<InputTask> inputTasks)
+  {
+    DBResultType result = DBResultType.Failure;
+    Connection con = null;
+    PreparedStatement pstmt = null;
+    StringBuilder builder = new StringBuilder();
+    builder.append("INSERT ");
+    builder.append("INTO ");
+    builder.append(this.DBName);
+    builder.append(".task ");
+    builder.append("( ");
+    builder.append("task_text, ");
+    builder.append("start_date, ");
+    builder.append("end_date, ");
+    builder.append("user_id, ");
+    builder.append("list_id) ");
+    builder.append("VALUES ");
+    builder.append("(");
+    builder.append("?, ");
+    builder.append("?, ");
+    builder.append("?, ");
+    builder.append("?, ");
+    builder.append("?");
+    builder.append(");");
+
+    try
+    {
+      con = this.GetConnection();
+      pstmt = con.prepareStatement(builder.toString());
+
+      // トランザクション開始
+      con.setAutoCommit(false);
+
+      for (InputTask inputTask : inputTasks)
+      {
+        pstmt.setString(1, inputTask.TaskText);
+
+        // 基本的には期日は登録不可だが機能的には登録可能性を残しておく
+        if (inputTask.StartDate != null)
+        {
+          pstmt.setDate(2, inputTask.StartDate);
+        }
+        else
+        {
+          pstmt.setNull(2,java.sql.Types.DATE);
+        }
+
+        if (inputTask.EndDate != null)
+        {
+          pstmt.setDate(3, inputTask.EndDate);
+        }
+        else
+        {
+          pstmt.setNull(3,java.sql.Types.DATE);
+        }
+
+        pstmt.setInt(4, inputTask.UserId);
+        pstmt.setInt(5, inputTask.ListId);
+
+        // バッチに追加
+        pstmt.addBatch();
+      }
+      int[] results = pstmt.executeBatch();
+
+      // 全て成功したか確認
+      for (int res : results)
+      {
+        // EXECUTE_FAILEDが返ってきたら失敗
+        if (res == PreparedStatement.EXECUTE_FAILED)
+        {
+          con.rollback();
+          result = DBResultType.Failure;
+          return result;
+        }
+      }
+      // 全件成功
+      con.commit();
+      result = DBResultType.Success;
+    }
+    catch (ClassNotFoundException | SQLException e)
+    {
+      if (con != null)
+      {
+        try
+        {
+          con.rollback();
+        }
+        catch (SQLException rollbackEx)
+        {
+          // ロールバック失敗時の処理（ログ出力など）
+          rollbackEx.printStackTrace();
+        }
+      }
+      result = this.GetErrorResult(e.getCause());
+    }
+    finally
+    {
+      if (pstmt != null)
+      {
+        try
+        {
+          pstmt.close();
+        }
+        catch (SQLException e)
+        {
+          e.printStackTrace();
+        }
+      }
+      if (con != null)
+      {
+        try
+        {
+          con.close();
+        }
+        catch (SQLException e)
+        {
+          e.printStackTrace();
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
    * タスク編集メソッド（タスク名）
    */
   public DBResultType UpdateTask(int taskID, String taskText,int userID)
   {
-    //UPDATE todojava_db.task SET `task_text`='テキスト45'WHERE id = 11 AND user_id = 1;
     DBResultType result = DBResultType.Failure;
-    int rs = 0;
 
     StringBuilder builder = new StringBuilder();
     builder.append("UPDATE ");
@@ -540,7 +688,7 @@ public class DBClient implements IDBClient
       pstmt.setInt(2, taskID);
       pstmt.setInt(3, userID);
 
-      rs = pstmt.executeUpdate();
+      pstmt.executeUpdate();
       result = DBResultType.Success;
     }
     catch (ClassNotFoundException | SQLException e)
@@ -561,7 +709,6 @@ public class DBClient implements IDBClient
   public DBResultType UpdateTask(int taskID, int userID, int taskPercent)
   {
     DBResultType result = DBResultType.Failure;
-    int rs = 0;
 
     StringBuilder builder = new StringBuilder();
     builder.append("UPDATE ");
@@ -589,7 +736,7 @@ public class DBClient implements IDBClient
       pstmt.setInt(3, taskID);
       pstmt.setInt(4, userID);
 
-      rs = pstmt.executeUpdate();
+      pstmt.executeUpdate();
       result = DBResultType.Success;
     }
     catch (ClassNotFoundException | SQLException e)
@@ -605,9 +752,7 @@ public class DBClient implements IDBClient
    */
   public DBResultType DeleteTask(int taskID, int userID)
   {
-    //DELETE FROM todojava_db.task WHERE id = 8 AND user_id = 1;
     DBResultType result = DBResultType.Failure;
-    int rs = 0;
 
     StringBuilder builder = new StringBuilder();
     builder.append("DELETE ");
@@ -629,7 +774,7 @@ public class DBClient implements IDBClient
       pstmt.setInt(1, userID);
       pstmt.setInt(2, taskID);
 
-      rs = pstmt.executeUpdate();
+      pstmt.executeUpdate();
       result = DBResultType.Success;
     }
     catch (ClassNotFoundException | SQLException e)
@@ -639,14 +784,13 @@ public class DBClient implements IDBClient
 
     return result;
   }
+
   /**
    * ユーザー作成メソッド
    */
   public DBResultType InsertUser(User user)
   {
-    //INSERT INTO todojava_db.users(`email`, `password`, `secret_tips_id`, `secret_password`) VALUES ('ryohei@gmail.com','ryohei',1,'高積');
     DBResultType result = DBResultType.Failure;
-    int rs = 0;
 
     StringBuilder builder = new StringBuilder();
     builder.append("INSERT ");
@@ -676,7 +820,7 @@ public class DBClient implements IDBClient
       pstmt.setString(3, user.SecretTipsId);
       pstmt.setString(4, user.SecretPassword);
 
-      rs = pstmt.executeUpdate();
+      pstmt.executeUpdate();
       result = DBResultType.Success;
     }
     catch (ClassNotFoundException | SQLException e)
@@ -693,7 +837,6 @@ public class DBClient implements IDBClient
    */
   public DBClientDtoPair<DBResultType, String> GetSecret(int secretID)
   {
-    //SELECT * FROM todojava_db.secret WHERE id = 1;
     DBResultType result = DBResultType.Failure;
     String getSecretTipsText = null;
 
@@ -712,7 +855,7 @@ public class DBClient implements IDBClient
       PreparedStatement pstmt = con.prepareStatement(builder.toString());
     )
     {
-      pstmt.setInt(1, secretID);//akagiプレースホルダーのパラメータのキーを選択してる(1とかで)
+      pstmt.setInt(1, secretID);
 
       try (ResultSet rs = pstmt.executeQuery())
       {
@@ -726,6 +869,7 @@ public class DBClient implements IDBClient
     }
     catch (ClassNotFoundException | SQLException e)
     {
+      getSecretTipsText = "";
       result = this.GetErrorResult(e.getCause());
     }
 
@@ -737,7 +881,6 @@ public class DBClient implements IDBClient
    */
   public DBClientDtoPair<DBResultType, Integer> GetSecretId(String email)
   {
-    //SELECT * FROM todojava_db.users WHERE email = "akagi@gmail.com";
     DBResultType result = DBResultType.Failure;
     int secretId = 0;
 
@@ -760,9 +903,9 @@ public class DBClient implements IDBClient
 
       try (ResultSet rs = pstmt.executeQuery())
       {
-        while (rs.next())//akagi行がある場合はtrue trueの場合は中に入って対応する（findとかでもよさそう？）最初の１行を取得するはず
+        while (rs.next())
         {
-          secretId = rs.getInt("secret_tips_id");//akagi IDに対応する値を取得してIntegerで返す
+          secretId = rs.getInt("secret_tips_id");
           break;
         }
       }
@@ -770,6 +913,7 @@ public class DBClient implements IDBClient
     }
     catch (ClassNotFoundException | SQLException e)
     {
+      secretId = 0;
       result = this.GetErrorResult(e.getCause());
     }
 
@@ -781,7 +925,6 @@ public class DBClient implements IDBClient
    */
   public DBClientDtoPair<DBResultType, List<String>> getSecretTipsList()
   {
-    //SELECT * FROM todojava_db.secret;
     DBResultType result = DBResultType.Failure;
     List<String> secretList = new ArrayList<>();
 
@@ -808,47 +951,13 @@ public class DBClient implements IDBClient
     }
     catch (ClassNotFoundException | SQLException e)
     {
+      secretList.clear();
       result = this.GetErrorResult(e.getCause());
     }
     
     return new DBClientDtoPair<DBResultType,List<String>>(result, secretList);
   }
 
-    /**
-   * DB接続オブジェクトを取得
-   * @return Connection DB接続オブジェクト
-   * @throws SQLException DB接続オブジェクトの取得に失敗
-   * @throws ClassNotFoundException JDBC接続ドライバロード失敗
-   */
-  private Connection GetConnection() throws SQLException, ClassNotFoundException
-  {
-    Class.forName(this.DBDriverString);
-    return DriverManager.getConnection(this.ConnectionString, this.DBUserName, this.DBPassword);
-  }
-
-  /**
-   * 例外オブジェクトから異常理由を判定
-   * @param cause DB接続処理に発生した例外オブジェクト
-   * @return DBResultType 処理結果
-   */
-  private DBResultType GetErrorResult(Throwable cause)
-  {
-    var result = DBResultType.Failure;//akagi エラーのときは失敗を入れる
-
-    if (cause != null && cause instanceof CJCommunicationsException) //akagi:instanceof　オブジェクトが特定クラスのインスタンスか確認/boolean CJCommunicationsException:通信エラー等
-    {
-      // タイムアウトと判断
-      result = DBResultType.Timeout;// akagi:タイムアウトを入れる
-    }
-    else 
-    {
-      // クエリ実行失敗やライブラリロード異常と判断
-      result = DBResultType.Failure;//akagi:原因不明のため失敗を入れる
-    }
-
-    return result;
-  }
-  
   /**
    * 忘却者ログイン認証
    * 依存性注入
@@ -900,6 +1009,7 @@ public class DBClient implements IDBClient
     }
     catch (ClassNotFoundException | SQLException e)
     {
+      user = new User();
       result = this.GetErrorResult(e.getCause());
     }
 
@@ -912,7 +1022,6 @@ public class DBClient implements IDBClient
   public DBResultType EditPeriodDate(InputTask inputTask)
   {
     DBResultType result = DBResultType.Failure;
-    int rs = 0;
 
     StringBuilder builder = new StringBuilder();
     builder.append("UPDATE ");
@@ -957,7 +1066,7 @@ public class DBClient implements IDBClient
       pstmt.setInt(3, inputTask.TaskId);
       pstmt.setInt(4, inputTask.UserId);
 
-      rs = pstmt.executeUpdate();
+      pstmt.executeUpdate();
       result = DBResultType.Success;
     }
     catch (ClassNotFoundException | SQLException e)
@@ -998,7 +1107,11 @@ public class DBClient implements IDBClient
     builder.append("list.id=task.list_id ");
     builder.append("WHERE ");
     builder.append("list.user_id=");
-    builder.append("?; ");
+    builder.append("? ");
+    builder.append("ORDER BY listId DESC, taskId DESC ");
+    builder.append("LIMIT ");
+    builder.append(this.TaskLimit);
+    builder.append(";");
 
     try (
       Connection con = this.GetConnection();
@@ -1020,11 +1133,12 @@ public class DBClient implements IDBClient
             listColumn.list_name = rs.getString("list_name");
             list.add(listColumn);
           }
-          
+
           var target = list.stream().filter(x -> x.id == listId).findFirst();
-          
+
           // タスク情報の取得
-          if (rs.getInt("taskId") != 0) // タスクが存在する場合のみ追加
+          // タスクが存在する場合のみ追加
+          if (rs.getInt("taskId") != 0)
           {
             var taskColumn = new TaskColumn();
             taskColumn.id = rs.getInt("taskId");
@@ -1041,13 +1155,50 @@ public class DBClient implements IDBClient
         }
         result = DBResultType.Success;
       } catch (SQLException e) {
+        list.clear();
         result = this.GetErrorResult(e.getCause());
       }
     }
     catch (ClassNotFoundException | SQLException e)
     {
+      list.clear();
       result = this.GetErrorResult(e.getCause());
     }
     return new DBClientDtoPair<DBResultType,List<ListColumn>>(result, list);
+  }
+
+  /**
+   * DB接続オブジェクトを取得
+   * @return Connection DB接続オブジェクト
+   * @throws SQLException DB接続オブジェクトの取得に失敗
+   * @throws ClassNotFoundException JDBC接続ドライバロード失敗
+   */
+  private Connection GetConnection() throws SQLException, ClassNotFoundException
+  {
+    Class.forName(this.DBDriverString);
+    return DriverManager.getConnection(this.ConnectionString, this.DBUserName, this.DBPassword);
+  }
+
+  /**
+   * 例外オブジェクトから異常理由を判定
+   * @param cause DB接続処理に発生した例外オブジェクト
+   * @return DBResultType 処理結果
+   */
+  private DBResultType GetErrorResult(Throwable cause)
+  {
+    var result = DBResultType.Failure;//akagi エラーのときは失敗を入れる
+
+    if (cause != null && cause instanceof CJCommunicationsException) //akagi:instanceof　オブジェクトが特定クラスのインスタンスか確認/boolean CJCommunicationsException:通信エラー等
+    {
+      // タイムアウトと判断
+      result = DBResultType.Timeout;// akagi:タイムアウトを入れる
+    }
+    else
+    {
+      // クエリ実行失敗やライブラリロード異常と判断
+      result = DBResultType.Failure;//akagi:原因不明のため失敗を入れる
+    }
+
+    return result;
   }
 }

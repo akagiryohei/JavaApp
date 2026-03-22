@@ -4,6 +4,7 @@ import Controller.ControllerBase;
 import Entity.Enum.ViewStateEnum;
 import Interface.Controller.Login.ILoginBaseController;
 import Interface.Model.Login.ILoginBaseModel;
+import Interface.View.IViewProxyUtil;
 import Interface.View.Login.ILoginBaseView;
 
 /*
@@ -20,10 +21,14 @@ public class LoginBaseController extends ControllerBase implements ILoginBaseCon
   // Modelインスタンス
   private ILoginBaseModel Model;
 
+  //  画面ラップ処理インスタンス
+  private IViewProxyUtil ViewProxyUtil;
+
   // コンストラクタ
-  public LoginBaseController(ILoginBaseView view, ILoginBaseModel model)
+  public LoginBaseController(ILoginBaseView view, ILoginBaseModel model, IViewProxyUtil viewProxyUtil)
   {
-    this.View = view;
+    this.ViewProxyUtil = viewProxyUtil;
+    this.View = this.ViewProxyUtil.WrapView(ILoginBaseView.class, view);
     this.Model = model;
 
     // 画面状態を設定
@@ -52,6 +57,6 @@ public class LoginBaseController extends ControllerBase implements ILoginBaseCon
 
   public ILoginBaseView GetViewInstance()
   {
-    return this.View;
+    return this.ViewProxyUtil.UnwrapView(this.View);
   }
 }

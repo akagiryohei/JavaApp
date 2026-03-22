@@ -1,6 +1,5 @@
 package Model.Process.Todo;
 
-import java.sql.Array;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -8,19 +7,24 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.function.Consumer;
 
-import com.mysql.cj.x.protobuf.MysqlxCrud.Update;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+
+import Entity.AIListTask;
 import Entity.Pair;
 import Entity.UserList;
 import Entity.UserTask;
 import Entity.DB.ListColumn;
 import Interface.Model.IDBClient;
+import Interface.Model.ILMStudioAPIClient;
 import Interface.Model.Process.Todo.ITodoProcess;
-import Interface.Model.Process.Todo.ITodoProcess.ResultType;
 import Entity.DB.DBResultType;
+import Entity.LMStudio.LMStudioResultType;
 import Entity.DB.InputTask;
 import Entity.DB.TaskColumn;
 
@@ -29,22 +33,30 @@ import Entity.DB.TaskColumn;
   */
 public class TodoProcess implements ITodoProcess
 {
+  /** タスク完了 */
+  private final int TASK_COMPLETE = 1;
+
   /** DB接続クライアントインスタンス */
   private IDBClient DBClient;
-  
+
   /** DB処理キューインスタンス */
   private ExecutorService DBQueue;
-  
+
+  /** LM Studio接続クライアントインスタンス */
+  private ILMStudioAPIClient LMStudioAPIClient;
+
   /**
    * コンストラクタ
    * 依存性注入
    * @param dbClient DB接続クライアントインスタンス
    * @param dbQueue  DB処理キューインスタンス
+   * @param lMStudioAPIClient LM Studio接続クライアントインスタンス
   */
-  public TodoProcess(IDBClient dbClient, ExecutorService dbQueue)
+  public TodoProcess(IDBClient dbClient, ExecutorService dbQueue, ILMStudioAPIClient LMStudioAPIClient)
   {
     this.DBClient = dbClient;
     this.DBQueue = dbQueue;
+    this.LMStudioAPIClient = LMStudioAPIClient;
   }
 
   /**
@@ -158,7 +170,7 @@ public class TodoProcess implements ITodoProcess
    * @param isBusyChanged 処理中イベントコールバック
    * @param finished 処理完了イベントコールバック（処理結果）
    */
-  public void CreateUserList(String listText, String userId, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
+  public void CreateUserList(String listText, String userId, Consumer<Boolean> isBusyChanged, Consumer<Pair<ResultType, Integer>> finished)
   {
     /** 処理中フラグを立てる */
     isBusyChanged.accept(true);
@@ -166,9 +178,9 @@ public class TodoProcess implements ITodoProcess
     var task = new FutureTask<>(new CreateUserListTask(this.DBClient, userId, listText)){
       @Override
       protected void done() {
-      ResultType ret = null;
+      Pair<ResultType, Integer> ret = null;
         try {
-          ret = ((ResultType)this.get());
+          ret = ((Pair<ResultType, Integer>)this.get());
         } catch (InterruptedException | ExecutionException e) {
           isBusyChanged.accept(false);
           return;
@@ -216,15 +228,16 @@ public class TodoProcess implements ITodoProcess
      * @return 処理結果（処理結果）
      */
     @Override
-    public ResultType call()
+    public Pair<ResultType, Integer> call()
     {
-      ResultType result = null;
+      Pair<ResultType, Integer> result = null;
       var retResult = ResultType.Failure;
 
       try
       {
         var ret = this.DBClient.InsertList(this.ListText, Integer.parseInt(this.UserId));
-        switch (ret) {
+        int generatedId = ret.Value2;
+        switch (ret.Value1) {
           case DBResultType.Success:
             retResult = ResultType.Success;
             break;
@@ -237,11 +250,11 @@ public class TodoProcess implements ITodoProcess
           default:
             break;
         }
-        result = retResult;
+        result = new Pair<TodoProcess.ResultType, Integer>(retResult, generatedId);
       }
       catch (NumberFormatException e)
       {
-        result = ResultType.ValidateError;
+        result = new Pair<TodoProcess.ResultType, Integer>(ResultType.ValidateError, 0);
       }
 
       return result;
@@ -249,7 +262,7 @@ public class TodoProcess implements ITodoProcess
   }
 
   /**
-   * 指定ユーザーのタスク登録処理
+   * 指定ユーザーのタスク登録処理（単体）
    * @param taskText
    * @param startDate
    * @param endDate
@@ -275,13 +288,12 @@ public class TodoProcess implements ITodoProcess
         finished.accept(ret);
       }
     };
-
     /** DB接続処理をキューに追加 */
     this.DBQueue.submit(task);
   }
 
   /**
-   * ユーザータスク登録タスク
+   * ユーザータスク登録タスク(単体)
    */
   private class CreateUserTaskTask implements Callable
   {
@@ -356,7 +368,118 @@ public class TodoProcess implements ITodoProcess
     }
   }
 
+  /**
+   * 指定ユーザーのタスク登録処理(複数)
+   * @param taskText
+   * @param startDate
+   * @param endDate
+   * @param listId
+   */
+  public void CreateUserTask(List<String> taskTexts, Date startDate, Date endDate, int listId, String userID, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
+  {
+    /** 処理中フラグを立てる */
+    isBusyChanged.accept(true);
 
+    var task = new FutureTask<>(new CreateUserTasksTask(this.DBClient, taskTexts, startDate, endDate, listId, userID)) {
+      @Override
+      protected void done() {
+      ResultType ret = null;
+        try {
+          ret = ((ResultType)this.get());
+        } catch (InterruptedException | ExecutionException e) {
+          isBusyChanged.accept(false);
+          return;
+        }
+
+        isBusyChanged.accept(false);
+        finished.accept(ret);
+      }
+    };
+    /** DB接続処理をキューに追加 */
+    this.DBQueue.submit(task);
+  }
+
+
+  /**
+   * ユーザータスク登録タスク(複数)
+   */
+  private class CreateUserTasksTask implements Callable
+  {
+    /** DB接続クライアントインスタンス */
+    private IDBClient DBClient;
+
+    /** タスク名 */
+    private List<String> TaskTexts;
+
+    /** 開始期日*/
+    private Date StartDate;
+
+    /** 終了期日 */
+    private Date EndDate;
+
+    /** リストID */
+    private int ListId;
+
+    /** 登録対象のユーザID */
+    private String UserId;
+    
+    public CreateUserTasksTask(IDBClient dbClient, List<String> taskTexts, Date startDate, Date endDate, int listId, String userID)
+    {
+      this.DBClient = dbClient;
+      this.TaskTexts = taskTexts;
+      this.StartDate = startDate;
+      this.EndDate = endDate;
+      this.ListId = listId;
+      this.UserId = userID;
+    }
+
+    /**
+     * 非同期処理
+     * @return 処理結果（処理結果）
+     */
+    @Override
+    public ResultType call()
+    {
+      ResultType result = null;
+      var retResult = ResultType.Failure;
+
+      try
+      {
+        List<InputTask> inputTasks = new ArrayList<>();
+        for (String taskText : this.TaskTexts)
+        {
+          InputTask inputTask = new InputTask();
+          inputTask.TaskText = taskText;
+          inputTask.StartDate = this.StartDate == null ? null : new java.sql.Date(this.StartDate.getTime());
+          inputTask.EndDate = this.EndDate == null ? null : new java.sql.Date(this.EndDate.getTime());
+          inputTask.ListId = this.ListId;
+          inputTask.UserId = Integer.parseInt(this.UserId);
+          inputTasks.add(inputTask);
+        }
+
+        var ret = this.DBClient.CreateTasks(inputTasks);
+        switch (ret) {
+          case DBResultType.Success:
+            retResult = ResultType.Success;
+            break;
+          case DBResultType.Failure:
+            retResult = ResultType.Failure;
+            break;
+          case DBResultType.Timeout:
+            retResult = ResultType.Timeout;
+            break;
+          default:
+            break;
+        }
+        result = retResult;
+      }
+      catch (NumberFormatException e)
+      {
+        result = ResultType.ValidateError;
+      }
+      return result;
+    }
+  }
 
   /**
    * 指定ユーザのリスト削除処理
@@ -643,12 +766,12 @@ public class TodoProcess implements ITodoProcess
           userTask.id = item.id;
           userTask.taskText = item.task_text;
           userTask.list_id = item.list_id;
-          SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+          SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy年MM月dd日");
           String strDate = item.start_date == null ? "" : dateFormat.format(item.start_date);
           userTask.startDate = strDate;
           strDate = item.end_date == null ? "" :dateFormat.format(item.end_date);
           userTask.endDate = strDate;
-          userTask.taskStatus = item.task_status;
+          userTask.taskStatus = item.task_status == TASK_COMPLETE ? true :false;
           userTask.progressRate = item.progress_rate;
           retUserTask.add(userTask);
         });
@@ -1022,7 +1145,6 @@ public class TodoProcess implements ITodoProcess
             isBusyChanged.accept(false);
             return;
           }
-
           isBusyChanged.accept(false);
           finished.accept(ret);
       }
@@ -1065,7 +1187,6 @@ public class TodoProcess implements ITodoProcess
         Pair<ResultType, List<UserList>> result = null;
         var retResult = ResultType.Failure;
         List<UserList> retUserList = new ArrayList<UserList>();
-        List<UserTask> retUserTask = new ArrayList<UserTask>();
 
         try
         {
@@ -1097,7 +1218,7 @@ public class TodoProcess implements ITodoProcess
                 userTask.taskText = taskItem.task_text;
                 userTask.startDate = taskItem.start_date == null ? "" : new SimpleDateFormat("yyyy-MM-dd").format(taskItem.start_date);
                 userTask.endDate = taskItem.end_date == null ? "" : new SimpleDateFormat("yyyy-MM-dd").format(taskItem.end_date);
-                userTask.taskStatus = taskItem.task_status;
+                userTask.taskStatus = taskItem.task_status == TASK_COMPLETE ? true : false;
                 userTask.list_id = item.id;
                 userList.tasks.add(userTask);
               }
@@ -1111,6 +1232,240 @@ public class TodoProcess implements ITodoProcess
         }
 
         return result;
+    }
+  }
+
+  /**
+   * LMStudioによるリストおよびタスク案の作成
+   * @param userInput ユーザ入力
+   * @param isBusyChanged 処理中イベントコールバック
+   * @param finished 処理完了イベントコールバック（処理結果、リストおよびタスク案）
+   */
+  public void Ask(String userInput, Consumer<Boolean> isBusyChanged, Consumer<Pair<ResultType, AIListTask>> finished)
+  {
+    /** 処理中フラグを立てる */
+    isBusyChanged.accept(true);
+    var task = new FutureTask<>(new AskTask(this.LMStudioAPIClient, userInput))
+    {
+      @Override
+      protected void done() {
+        Pair<ResultType, AIListTask> ret = null;
+        try {
+          ret = ((Pair<ResultType, AIListTask>)this.get());
+        } catch (InterruptedException | ExecutionException e) {
+          isBusyChanged.accept(false);
+          return;
+        }
+        isBusyChanged.accept(false);
+        finished.accept(ret);
+      }
+    };
+    /** LMStudio呼び出しもExecutorで実行するようキューに追加 */
+    // DBQueueでも問題ないが名称がDB特化なのでコメント残す
+    this.DBQueue.submit(task);
+  }
+
+  /**
+   * LMStudioリストとタスク作成タスク
+   */
+  private class AskTask implements Callable
+  {
+    /** LMStudioAPIClient */
+    private ILMStudioAPIClient LMStudioAPIClient;
+    
+    /** ユーザー入力 */
+    private String UserInput;
+
+    /**
+     * コンストラクタ
+     */
+    public AskTask(ILMStudioAPIClient lMStudioAPIClient, String userInput)
+    {
+      this.LMStudioAPIClient = lMStudioAPIClient;
+      this.UserInput = userInput;
+    }
+
+    /**
+     * 非同期処理
+     * @return 処理結果（処理結果）
+     */
+    @Override
+    public Pair<ResultType, AIListTask> call()
+    {
+      Pair<ResultType, AIListTask> result = null;
+      var retResult = ResultType.Failure;
+      AIListTask retAIListTask = new AIListTask();
+
+      try
+      {
+        var ret = this.LMStudioAPIClient.Ask(this.UserInput);
+
+        /** リスト名とタスク名が入る */
+        JsonObject aiResponse = ret.Value2;
+
+        switch (ret.Value1)
+        {
+          case LMStudioResultType.Success:
+            retResult = ResultType.Success;
+            break;
+          case LMStudioResultType.Failure:
+            retResult =ResultType.Failure;
+            break;
+          case LMStudioResultType.Timeout:
+            retResult = ResultType.Timeout;
+            break;
+          default:
+            break;
+        }
+        /** LMStudioから返されたリスト名とタスク名を設定 */
+        // 先にタスク名を配列にしておいた方がいいのか？けどもしfor文で取り出せるなら入れ替える必要なくない？
+        String jsonContent = aiResponse.getAsJsonArray("choices")
+        .get(0).getAsJsonObject()
+        .getAsJsonObject("message")
+        .get("content").getAsString();
+        jsonContent = jsonContent
+                .replaceAll("^```json", "")
+                .replaceAll("^```", "")
+                .replaceAll("```$", "")
+                .trim();
+        System.out.println(jsonContent);
+
+        // JSON 文字列をパース
+        JsonObject contentJson = JsonParser.parseString(jsonContent).getAsJsonObject();
+        String listName = contentJson.get("リスト名").getAsString();
+        retAIListTask.listName = listName;
+
+        JsonArray tasksArray = contentJson.getAsJsonArray("タスク");
+        for (JsonElement taskElement : tasksArray)
+        {
+          String taskName = taskElement.getAsString();
+          retAIListTask.tasks.add(taskName);
+        }
+        result = new Pair<ResultType, AIListTask>(retResult, retAIListTask);
+      } catch (Exception e)
+      {
+        result = new Pair<ResultType, AIListTask>(ResultType.Failure, retAIListTask);
+      }
+      return result;
+    }
+  }
+
+  /**
+   * LMStudioによるリストおよびタスク案の再作成
+   * @param userInput ユーザ入力
+   * @param addUserInput 追加ユーザ入力
+   * @param isBusyChanged 処理中イベントコールバック
+   * @param finished 処理完了イベントコールバック（処理結果、リストおよびタスク案）
+   */
+  public void ReAsk(String userInput, String addUserInput, Consumer<Boolean> isBusyChanged, Consumer<Pair<ResultType, AIListTask>> finished)
+  {
+    /** 処理中フラグを立てる */
+    isBusyChanged.accept(true);
+    var task = new FutureTask<>(new ReAskTask(this.LMStudioAPIClient, userInput, addUserInput))
+    {
+      @Override
+      protected void done() {
+        Pair<ResultType, AIListTask> ret = null;
+        try {
+          ret = ((Pair<ResultType, AIListTask>)this.get());
+        } catch (InterruptedException | ExecutionException e) {
+          isBusyChanged.accept(false);
+          return;
+        }
+        isBusyChanged.accept(false);
+        finished.accept(ret);
+      }
+    };
+    // DBQueueでも問題ないが名称がDB特化なのでコメント残す
+    this.DBQueue.submit(task);
+  }
+
+  /**
+   * LMStudioリストとタスク再作成タスク
+   */
+  private class ReAskTask implements Callable
+  {
+    /** LMStudioAPIClient */
+    private ILMStudioAPIClient LMStudioAPIClient;
+    
+    /** ユーザー入力 */
+    private String UserInput;
+
+    /** 追加ユーザー入力 */
+    private String AddUserInput;
+
+    /**
+     * コンストラクタ
+     */
+    public ReAskTask(ILMStudioAPIClient lMStudioAPIClient, String userInput, String addUserInput)
+    {
+      this.LMStudioAPIClient = lMStudioAPIClient;
+      this.UserInput = userInput;
+      this.AddUserInput = addUserInput;
+    }
+
+    /**
+     * 非同期処理
+     * @return 処理結果（処理結果）
+     */
+    @Override
+    public Pair<ResultType, AIListTask> call()
+    {
+      Pair<ResultType, AIListTask> result = null;
+      var retResult = ResultType.Failure;
+      AIListTask retAIListTask = new AIListTask();
+
+      try
+      {
+        var ret = this.LMStudioAPIClient.ReAsk(this.UserInput, this.AddUserInput);
+
+        /** リスト名とタスク名が入る */
+        JsonObject aiResponse = ret.Value2;
+
+        switch (ret.Value1)
+        {
+          case LMStudioResultType.Success:
+            retResult = ResultType.Success;
+            break;
+          case LMStudioResultType.Failure:
+            retResult =ResultType.Failure;
+            break;
+          case LMStudioResultType.Timeout:
+            retResult = ResultType.Timeout;
+            break;
+          default:
+            break;
+        }
+        /** LMStudioから返されたリスト名とタスク名を設定 */
+        // 先にタスク名を配列にしておいた方がいいのか？けどもしfor文で取り出せるなら入れ替える必要なくない？
+        String jsonContent = aiResponse.getAsJsonArray("choices")
+        .get(0).getAsJsonObject()
+        .getAsJsonObject("message")
+        .get("content").getAsString();
+        jsonContent = jsonContent
+                .replaceAll("^```json", "")
+                .replaceAll("^```", "")
+                .replaceAll("```$", "")
+                .trim();
+        System.out.println(jsonContent);
+
+        // JSON 文字列をパース
+        JsonObject contentJson = JsonParser.parseString(jsonContent).getAsJsonObject();
+        String listName = contentJson.get("リスト名").getAsString();
+        retAIListTask.listName = listName;
+
+        JsonArray tasksArray = contentJson.getAsJsonArray("タスク");
+        for (JsonElement taskElement : tasksArray)
+        {
+          String taskName = taskElement.getAsString();
+          retAIListTask.tasks.add(taskName);
+        }
+        result = new Pair<ResultType, AIListTask>(retResult, retAIListTask);
+      } catch (Exception e)
+      {
+        result = new Pair<ResultType, AIListTask>(ResultType.Failure, retAIListTask);
+      }
+      return result;
     }
   }
 }

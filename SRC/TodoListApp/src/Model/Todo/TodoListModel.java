@@ -53,7 +53,7 @@ public class TodoListModel extends TodoBaseModel implements ITodoListModel
      */
     public void CreateUserTask(String taskText, Date startDate, Date endDate, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
     {
-        int getLength = this.Util.GetStringLength(taskText);
+        int getLength = this.Util.GetWideStringLength(taskText);
         if (getLength > 0 && getLength < 40)
         {
 
@@ -95,43 +95,11 @@ public class TodoListModel extends TodoBaseModel implements ITodoListModel
 
     /**
      * タスク取得メソッド
-     * ※タスク削除時に呼び出される用
+     * ※タスク編集時に呼び出される用
      */
     public void GetUserTask(Consumer<Boolean> isBusyChanged, Consumer<Pair<ITodoProcess.ResultType, List<UserTask>>> finished)
     {
         this.GetUserTask(this.ListId, isBusyChanged, finished);
-    }
-
-    /**
-     * タスク編集
-     * @param taskId 画面の選択中タスクID
-     * @param taskText 画面の選択中タスクテキスト
-     * @param isBusyChanged 処理中イベントコールバック
-     * @param finished 処理完了コールバック
-     */
-    public void UpdateTask(int taskId, String taskText, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
-    {
-        this.Process.UpdateTask(taskId, taskText, this.UserData.UserId, (isBusy) -> {
-            isBusyChanged.accept(isBusy);
-        }, (result) -> {
-            finished.accept(result);
-        });
-    }
-
-    /**
-     * タスク編集（タスク進捗度＋完了/未完了）
-     * @param taskId 画面の選択中タスクID
-     * @param isChecked 画面の選択中タスクの状態
-     * @param isBusyChanged 処理中イベントコールバック
-     * @param finished 処理完了コールバック
-     */
-    public void UpdateTask(int taskId, boolean isChecked, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
-    {
-        this.Process.UpdateTask(taskId, isChecked ? 100 : 0, this.UserData.UserId, (isBusy) -> {
-            isBusyChanged.accept(isBusy);
-        }, (result) -> {
-            finished.accept(result);
-        });
     }
 
     /**
@@ -152,19 +120,12 @@ public class TodoListModel extends TodoBaseModel implements ITodoListModel
     }
 
     /**
-     * ユーザタスク削除
-     * @param taskId 画面の選択中タスクID
-     * @param isBusyChanged 処理中イベントコールバック
-     * @param finished 処理完了コールバック
+     * ＋ボタン押下可否判定
+     * @param taskText タスク入力欄の文字列
      */
-    public void DeleteTask(int taskId, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished)
+    public Boolean GetPlusButtonPossibility(String taskText)
     {
-        this.Process.DeleteTask(taskId, this.UserData.UserId, (isBusy) ->
-        {
-            isBusyChanged.accept(isBusy);
-        }, (result) -> {
-            finished.accept(result);
-        });
+        return taskText.isEmpty();
     }
 
 }

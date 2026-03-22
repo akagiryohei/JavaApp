@@ -1,5 +1,6 @@
 package Model;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.regex.Pattern;
@@ -44,13 +45,50 @@ public class ValidationUtil implements IValidationUtil {
     }
 
     /**
-     * 文字列バイト数取得
+     * 文字列バイト数取得（全角文字を除く）
      * @param text
      * @return
      */
     public int GetStringLength(String text)
     {
         return text.getBytes(StandardCharsets.UTF_8).length;
+    }
+
+    /**
+     * 文字列バイト数取得（全角文字を含む）
+     * @param text
+     * @return
+     */
+    public int GetWideStringLength(String text)
+    {
+        return text.getBytes(Charset.forName("Shift-JIS")).length;
+    }
+
+    /**
+     * 文字列を指定したバイト数だけ切り取り
+     * @param text
+     * @param bytes
+     * @return
+     */
+    public String GetSubstringText(String text, Integer bytes)
+    {
+        String retText = "";
+        int textByteCnt = 0; 
+        for (int i = 0; i < text.length(); i++) {
+
+            //対象となる文字列を先頭から1文字切り出し、その文字のバイト数を調べる
+            String tmpText = text.substring(i, i + 1);
+            var tmpTextByte = this.GetWideStringLength(tmpText);
+
+            //切り出した文字を変数retに追加した際のバイト数が指定バイト数より大きければ、変数retを返す
+            if (textByteCnt + tmpTextByte > bytes) {
+                return retText;
+            } else {
+                retText = retText + tmpText;
+                textByteCnt = textByteCnt + tmpTextByte;
+            }
+        }
+        return retText;
     }
 
     /**

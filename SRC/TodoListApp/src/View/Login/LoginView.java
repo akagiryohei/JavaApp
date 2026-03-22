@@ -89,7 +89,7 @@ public class LoginView extends JPanelViewBase implements ILoginView, ReminderDia
     this.add(appNameLabel);
 
     // ユーザ名入力欄の設定
-    JLabel userLabel = new JLabel("<html><body><center>ユーザ名<br />(メールアドレス)</center></html></body>");
+    JLabel userLabel = new JLabel("<html><body><center>ユーザ名<br>(メールアドレス)</center></html></body>");
     userLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
     userLabel.setBounds(300,176,200,66);
     userLabel.setVerticalAlignment(JLabel.CENTER); //垂直位置
@@ -144,6 +144,9 @@ public class LoginView extends JPanelViewBase implements ILoginView, ReminderDia
     this.add(this.CreateAccountButton);
 
     // ログイン画面にパーツを配置
+
+    // フィールド変数のSwingパーツをロギング対象とする
+    this.SetFieldNamesToComponents();
   }
 
   /**
@@ -220,6 +223,7 @@ public class LoginView extends JPanelViewBase implements ILoginView, ReminderDia
     this.LoginButton.removeActionListener(this);
     this.CreateAccountButton.removeActionListener(this);
     this.LostPassUserButton.removeActionListener(this);
+    this.ReminderDialogView.RemoveListener(this);
     this.UserNameTextField.getDocument().removeDocumentListener(this);
     this.PasswordTextField.getDocument().removeDocumentListener(this);
   }

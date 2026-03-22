@@ -5,7 +5,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.time.LocalDate;
-import java.time.Year;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -14,81 +13,46 @@ import java.awt.event.ItemListener;
 
 
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultListCellRenderer;
-import javax.swing.JButton;
 import javax.swing.JComboBox;
-import javax.swing.JDialog;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextField;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.event.EventListenerList;
 
 import Entity.GanttchartTask;
-import Entity.UserData;
 import Entity.UserList;
-import Entity.UserTask;
-import Entity.Dialog.Constants;
-import Entity.Dialog.GanttchartProgress;
-import Interface.Controller.Todo.ITodoBoardController;
+import Entity.Enum.LogLevel;
 import Interface.Controller.Todo.ITodoGanttchartController;
-import Interface.Controller.Todo.ITodoListController;
-import Interface.View.IMainWindowView;
 import Interface.View.Todo.ITodoGanttchartView;
-import Interface.View.Todo.ITodoListBaseView;
 import View.JPanelViewBase;
 import View.Dialog.CommonDialogView;
 import View.Dialog.CommonDialogView.CommonDialogType;
 import View.Dialog.EditProgressRateDialogView;
+import View.Dialog.UpdateListDialogView;
 import View.Dialog.Listener.EditProgressRateDialogViewListener;
-import View.Todo.Board.TodoSideBoardPanel;
-import View.Todo.List.TodoGanttchartContentPanel;
+import View.Dialog.Listener.UpdateListDialogViewListener;
+import View.Todo.Listener.TodoListViewCommonListener;
 import View.Todo.Listener.TodoSideCommonPanelListener;
 import View.Ganttchart.GanttchartPanel;
 import View.Ganttchart.Listener.GanttchartPanelListener;
 
-public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchartView, TodoSideCommonPanelListener, ItemListener, ActionListener, GanttchartPanelListener, EditProgressRateDialogViewListener{
-
-    // 親画面のインスタンス
-    public ITodoListBaseView BaseViewInstance;
-
+public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchartView, TodoSideCommonPanelListener, ItemListener, ActionListener, GanttchartPanelListener, EditProgressRateDialogViewListener, UpdateListDialogViewListener
+{
+    // 年月フォーマッター
+    private final DateTimeFormatter YearMonthFormatter = DateTimeFormatter.ofPattern("yyyy年MM月");
     // TodoList(リスト型表示)コントローラ
     private ITodoGanttchartController Controller;
 
     // LeftJPanelのインスタンス
     private TodoSideCommonPanel TodoSideCommonPanel;
 
-    // LeftJPanel（ボード表示時）のインスタンス
-    private TodoSideBoardPanel TodoSideBoardPanel;
-
-    // RightJPanelのインスタンス
-    private TodoGanttchartContentPanel TodoGanttchartContentPanel;
-
-    // 左部分の表示
-    private JPanel TodoSidePanel;
-
-    // 右部分の表示
-    private JPanel TodoContentPanel;
-
-    // ガントチャートテーブル
-    private JTable GanttchartTable;
-
-    // ダイアログスクロールビュー
-    private JScrollPane GanttchartScrollPanel;
-
     // 共通ダイアログのインスタンス
     private CommonDialogView CommonDialogView;
 
-    // 進捗率ダイアログのインスタンス
-    private GanttchartProgress GanttchartProgress;
-
     private GanttchartPanel GanttchartPanelInstance;
-
-    // リストデータ
-    private List<UserList> List;
 
     // 選択中リストID
     private int SelectedListId;
@@ -96,23 +60,8 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
     // 選択中リスト名
     private String SelectedListName;
 
-    // 選択中リストのタスク
-    public  List<UserTask> Task;
-
-    // リスト編集ダイアログ
-    JDialog ListDialog;
-
     // 進捗率編集ダイアログ
-    EditProgressRateDialogView EditProgressRateDialogView;
-
-    // 修正用テキストフィールド
-    JTextField ListNameInputField;
-
-    // MainWindowViewのインスタンス
-    private IMainWindowView MainWindowViewInstance;
-
-    // 現在年月
-    private YearMonth CurrentYearMonth;
+    private EditProgressRateDialogView EditProgressRateDialogView;
 
     // リスト名
     private JLabel ListName;
@@ -120,26 +69,38 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
     // 年月選択プルダウン
     private JComboBox<YearMonth> YearMonthSelectComboBox;
 
-    private final DateTimeFormatter YearMonthFormatter = DateTimeFormatter.ofPattern("yyyy年MM月");
-
     private Boolean IsUpdating;
 
     // 選択中タスク
     private GanttchartTask SelectedTask;
 
-    public TodoGanttchartView(ITodoListBaseView baseViewInstance, IMainWindowView mainWindowViewInstance, CommonDialogView commonDialogView, EditProgressRateDialogView editProgressRateDialogView)
-    {
-        this.BaseViewInstance = baseViewInstance;
+    // リスト編集ダイアログ
+    private UpdateListDialogView UpdateListDialogView;
 
+    // スクロールリストパネル
+    private JScrollPane scrollListPane;
+
+    // イベントリスナインスタンス
+    protected EventListenerList ListenerList;
+
+    public TodoGanttchartView(CommonDialogView commonDialogView, EditProgressRateDialogView editProgressRateDialogView, UpdateListDialogView updateListDialogView)
+    {
         // ダイアログインスタンスを初期化
         this.CommonDialogView = commonDialogView;
+        var panel = new JPanel();
+        panel.setBackground(Color.pink);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         this.GanttchartPanelInstance = new GanttchartPanel();
-        this.GanttchartPanelInstance.SetLocation(230, 200);
-        this.MainWindowViewInstance = mainWindowViewInstance;
+        panel.add(this.GanttchartPanelInstance);
+        this.scrollListPane = new JScrollPane(panel);
+        this.scrollListPane.setBackground(Color.CYAN);
+        this.scrollListPane.setBounds(230,200,757,365);
         this.EditProgressRateDialogView = editProgressRateDialogView;
+        this.UpdateListDialogView = updateListDialogView;
+
+        this.ListenerList = new EventListenerList();
 
         // 現在年月を取得
-        this.CurrentYearMonth = YearMonth.now();
         this.IsUpdating = false;
 
         this.setLayout(null);
@@ -165,7 +126,6 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
                 super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 if (value instanceof YearMonth) {
-                  // TODO: viewのメンバ変数を見たいけど
                     setText(((YearMonth) value).format(YearMonthFormatter));
                 }
                 return this;
@@ -175,7 +135,7 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
         // 左要素追加
         this.add(this.TodoSideCommonPanel);
         // 右要素追加
-        this.add(this.GanttchartPanelInstance);
+        this.add(this.scrollListPane);
     }
 
     /**
@@ -194,10 +154,6 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
     {
       switch (e.getActionCommand())
       {
-        case "EditListName":
-          System.out.println("EditListNameボタンが押下された");
-          this.UpdateListClicked(this.SelectedListId);
-          break;
         default:
           break;
       }
@@ -244,6 +200,24 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
     }
 
     /**
+     * リスナ対象追加
+     * @param listener 追加対象リスナインスタンス
+     */
+    public void AddListener(TodoListViewCommonListener listener)
+    {
+      this.ListenerList.add(TodoListViewCommonListener.class, listener);
+    }
+
+    /**
+     * リスナ対象削除
+     * @param listener 削除対象リスナインスタンス
+     */
+    public void RemoveListener(TodoListViewCommonListener listener)
+    {
+      this.ListenerList.remove(TodoListViewCommonListener.class, listener);
+    }
+
+    /**
      * ユーザリストクリック時の処理
      * @param listId 選択対象のリストID
      * @param listName 選択対象のリスト名
@@ -258,7 +232,11 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
      */
     public void BoardButtonClicked()
     {
-      this.BaseViewInstance.ChangeView(TodoListBaseView.ViewType.TodoBoardView);
+      for (TodoListViewCommonListener listener : this.ListenerList.getListeners(TodoListViewCommonListener.class))
+      {
+        // ボードボタン押下を通知
+        listener.BoardButtonClicked();
+      }
     }
 
     /**
@@ -266,7 +244,11 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
      */
     public void ListButtonClicked()
     {
-      this.BaseViewInstance.ChangeView(TodoListBaseView.ViewType.TodoListView);
+      for (TodoListViewCommonListener listener : this.ListenerList.getListeners(TodoListViewCommonListener.class))
+      {
+        // リストボタン押下を通知
+        listener.ListButtonClicked();
+      }
     }
 
     /**
@@ -274,15 +256,21 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
      */
     public void GanttchartButtonClicked()
     {
-      this.BaseViewInstance.ChangeView(TodoListBaseView.ViewType.TodoGanttchartView);
+      for (TodoListViewCommonListener listener : this.ListenerList.getListeners(TodoListViewCommonListener.class))
+      {
+        // ガントチャートボタン押下を通知
+        listener.GanttchartButtonClicked();
+      }
     }
 
     /**
-     * リマインダーダイアログを表示
+     * AIリスト・タスク案作成画面ボタンクリック時の処理
      */
-    public void ReminderDialogView(List<ArrayList<String>> reminderList, UserData loginedUserData)
-    {
-      //this.GanttchartProgress.Show(progress, true);
+    public void AICreateListTaskButtonClicked() {
+        for (TodoListViewCommonListener listener : this.ListenerList.getListeners(TodoListViewCommonListener.class)) {
+        // AIリスト・タスク案作成ボタン押下を通知
+        listener.AICreateListTaskButtonClicked();
+        }
     }
 
     /**
@@ -300,7 +288,6 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
      */
     public void SetList(List<UserList> list)
     {
-      this.List = list;
       this.TodoSideCommonPanel.SetList(list);
     }
 
@@ -336,43 +323,33 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
       this.CommonDialogView.Show(CommonDialogType.TaskDeleteFailureDialog, true);
     }
 
+    // リスト情報取得失敗ダイアログ表示
+    public void GetListFailureDialog()
+    {
+      this.CommonDialogView.Show(CommonDialogType.GetUserListFailureDialog, true);
+    }
+
+    // タスク情報取得失敗ダイアログ表示
+    public void GetTaskFailureDialog()
+    {
+      this.CommonDialogView.Show(CommonDialogType.GetTaskFailureDialog, true);
+    }
+
+    // タスク更新失敗ダイアログ表示
+    public void UpdateTaskFailureDialog()
+    {
+      this.CommonDialogView.Show(CommonDialogType.UpdateTaskFailureDialog, true);
+    }
+
   /**
    * リストアップデートダイアログ
    */
-  // TODO:リストとタスクどちらにも使えるようにする？
   public void UpdateListDialog(int listid, String listName)
   {
     this.SelectedListId = listid;
     this.SelectedListName = listName;
-
-    // ダイアログ名
-    // TODO: キャスト処理は共通ダイアログにすると削除できる
-    this.ListDialog = new JDialog((JFrame)this.MainWindowViewInstance, Constants.EDIT_DIALOG, true);
-    this.ListDialog.setSize(400,256);
-    this.ListDialog.setLayout(null);
-
-    // 指示文言
-    JLabel operationLabel = new JLabel(Constants.TASK_EDIT_OPERATION);
-    operationLabel.setBounds(76,10,350,35);
-    this.ListDialog.add(operationLabel);
-
-    // Text入力
-    this.ListNameInputField = new JTextField();
-    ListNameInputField.setText(this.SelectedListName);
-    ListNameInputField.setBounds(76,50,228,35);
-    ListNameInputField.setColumns(1);
-    this.ListDialog.add(ListNameInputField);
-
-    // 編集ボタン
-    JButton editButton = new JButton("編集");
-    editButton.setBounds(90,130,76,35);
-    editButton.setActionCommand("EditListName");
-    editButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-    this.ListDialog.add(editButton);
-    editButton.addActionListener(this);
-    this.ListDialog.setLocationRelativeTo(null);
-    this.ListDialog.setVisible(true);
-    // OKでもキャンセルでもダイアログを閉じる処理は入れるべき
+    this.UpdateListDialogView.AddListener(this);
+    this.UpdateListDialogView.Show(this.SelectedListName);
   }
 
   /**
@@ -406,18 +383,11 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
    * リスト更新メソッド
    * @param listId 画面の選択中リストID
    */
-  public void UpdateListClicked(int listId)
+  public void UpdateListClicked(String UpdateListName)
   {
-    String listName = this.ListNameInputField.getText();
-    this.Controller.UpdateList(listId, listName);
-  }
-
-  /**
-   * リスト編集ダイアログ閉
-   */
-  public void CloseListDialog()
-  {
-    this.ListDialog.dispose();
+    this.UpdateListDialogView.RemoveListener(this);
+    this.UpdateListDialogView.Hide();
+    this.Controller.UpdateList(this.SelectedListId, UpdateListName);
   }
 
   /**
@@ -425,8 +395,9 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
    * @param task 選択中リストのタスク一覧
    * @param listName 選択中リスト名
    * @param activeYearMonth 選択中年月
+   * @param today 本日の日付
    */
-  public void SetTask(List<GanttchartTask> userTask, String listName, YearMonth activeYearMonth)
+  public void SetTask(List<GanttchartTask> userTask, String listName, YearMonth activeYearMonth, LocalDate today)
   {
     // これでfor文を回して値を渡していく
     this.ListName.setText(listName);
@@ -440,12 +411,21 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
     }
     this.YearMonthSelectComboBox.setSelectedItem(activeYearMonth);
     this.IsUpdating = false;
-    this.GanttchartPanelInstance.RenderGanttchartGrid(activeYearMonth, userTask);
+    this.GanttchartPanelInstance.RenderGanttchartGrid(activeYearMonth, today, userTask);
     //変化通知が飛ばない対策（自身も再レイアウト）
     this.revalidate();
     this.repaint();
   }
 
+  /**
+   * ガントチャートパネルの本日表示を更新する
+   * @param today 本日の日付
+   */
+  public void RefreshTodayCell(LocalDate today)
+  {
+    this.GanttchartPanelInstance.RefreshTodayCell(today);
+  }
+  
   /**
    * 前後２年分の年月取得メソッド
    */
@@ -489,6 +469,27 @@ public class TodoGanttchartView extends JPanelViewBase implements ITodoGanttchar
   public void CancelButtonClicked() {
     this.EditProgressRateDialogView.Hide();
     this.SelectedTask = null;
+  }
+
+  /**
+   * 左側パネルの要素押下可否設定メソッド
+   * @param isDisabled 押下不可にする場合true、押下可能にする場合false
+   */
+  public void SideElementDisabled(boolean isDisabled)
+  {
+    this.TodoSideCommonPanel.ElementDisabled(isDisabled);
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面要素押下可否設定" + "(" + String.valueOf(isDisabled) + ")");});
+  }
+
+  /**
+   * 右側パネルの要素押下可否設定メソッド
+   * @param isDisabled 押下不可にする場合true、押下可能にする場合false
+   */
+  public void LeftElementDisabled(boolean isDisabled)
+  {
+    this.YearMonthSelectComboBox.setEnabled(!isDisabled);
+    this.GanttchartPanelInstance.setEnabled(!isDisabled);
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面要素押下可否設定" + "(" + String.valueOf(isDisabled) + ")");});
   }
 
 }

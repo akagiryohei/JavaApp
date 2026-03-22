@@ -4,6 +4,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
 
+import Entity.AIListTask;
 import Entity.Pair;
 import Entity.UserList;
 import Entity.UserTask;
@@ -45,7 +46,7 @@ public interface ITodoProcess
    * @param isBusyChanged 処理中イベントコールバック
    * @param finished 処理完了イベントコールバック（処理結果）
    */
-  public void CreateUserList(String listText, String userId, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished);
+  public void CreateUserList(String listText, String userId, Consumer<Boolean> isBusyChanged, Consumer<Pair<ResultType, Integer>> finished);
 
   /**
    * 指定ユーザーのタスク登録処理
@@ -55,6 +56,15 @@ public interface ITodoProcess
    * @param listId
    */
   public void CreateUserTask(String taskText, Date startDate, Date endDate, int listId, String userID, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished);
+
+  /**
+   * 指定ユーザーのタスク登録処理(複数)
+   * @param taskText
+   * @param startDate
+   * @param endDate
+   * @param listId
+   */
+  public void CreateUserTask(List<String> taskTexts, Date startDate, Date endDate, int listId, String userID, Consumer<Boolean> isBusyChanged, Consumer<ResultType> finished);
 
 
   /**
@@ -123,5 +133,22 @@ public interface ITodoProcess
    * @param finished 処理完了イベントコールバック（処理結果、リスト一覧）
   */
   public void GetUserListAndTask(String userId, Consumer<Boolean> isBusyChanged, Consumer<Pair<ResultType, List<UserList>>> finished);
+
+  /**
+   * LMStudioによるリストおよびタスク案の作成
+   * @param userInput ユーザ入力
+   * @param isBusyChanged 処理中イベントコールバック
+   * @param finished 処理完了イベントコールバック（処理結果、リストおよびタスク案）
+   */
+  public void Ask(String userInput, Consumer<Boolean> isBusyChanged, Consumer<Pair<ResultType, AIListTask>> finished);
+
+  /**
+   * LMStudioによるリストおよびタスク案の再作成
+   * @param userInput ユーザ入力
+   * @param addUserInput 追加ユーザ入力
+   * @param isBusyChanged 処理中イベントコールバック
+   * @param finished 処理完了イベントコールバック（処理結果、リストおよびタスク案）
+   */
+  public void ReAsk(String userInput, String addUserInput, Consumer<Boolean> isBusyChanged, Consumer<Pair<ResultType, AIListTask>> finished);
 
 }

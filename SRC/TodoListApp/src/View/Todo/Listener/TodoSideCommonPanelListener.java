@@ -30,6 +30,11 @@ public interface TodoSideCommonPanelListener extends EventListener
   public void GanttchartButtonClicked();
 
   /**
+ * AIリスト・タスク案作成ボタンクリック時の処理
+ */
+  public void AICreateListTaskButtonClicked();
+
+  /**
    * リスト作成メソッド
    * @param listText
    */

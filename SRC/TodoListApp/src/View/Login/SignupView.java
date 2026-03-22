@@ -55,7 +55,7 @@ public class SignupView extends JPanelViewBase implements ISignupView, ActionLis
   /**
    * コンストラクタ
    */
-  public SignupView(IMainWindowView mainWindowView, CommonDialogView commonDialogView)
+  public SignupView(CommonDialogView commonDialogView)
   {
     // イベントリスナインスタンスを初期化
     this.ListenerList = new EventListenerList();
@@ -76,7 +76,7 @@ public class SignupView extends JPanelViewBase implements ISignupView, ActionLis
     this.add(guidanceLabel);
 
     // ユーザ名入力欄の設定
-    JLabel userLabel = new JLabel("<html><body><center>ユーザ名<br />(メールアドレス)</center></html></body>");
+    JLabel userLabel = new JLabel("<html><body><center>ユーザ名<br>(メールアドレス)</center></html></body>");
     userLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
     userLabel.setBounds(300,176,200,66);
     userLabel.setVerticalAlignment(JLabel.CENTER); //垂直位置
@@ -107,7 +107,7 @@ public class SignupView extends JPanelViewBase implements ISignupView, ActionLis
     this.add(this.PasswordTextField);
 
     // パスワードの注意書きラベルの設定
-    JLabel passwordAttentionLabel = new JLabel("※文字数8文字以上半角英数字のみ");
+    JLabel passwordAttentionLabel = new JLabel("※文字数８文字以上半角英数字のみ");
     passwordAttentionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
     passwordAttentionLabel.setBounds(500,330,200,22);
     passwordAttentionLabel.setForeground(Color.RED);

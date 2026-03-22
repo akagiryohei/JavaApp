@@ -6,51 +6,37 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
-import javax.security.auth.login.LoginContext;
 import javax.swing.*;
+import javax.swing.event.EventListenerList;
 
 import Entity.UserList;
 import Entity.UserTask;
-import Entity.Dialog.Constants;
 import Interface.Controller.Todo.ITodoListController;
-import Interface.View.IMainWindowView;
-import Interface.View.Todo.ITodoListBaseView;
 import Interface.View.Todo.ITodoListView;
 // コントローラーimport必要
 import View.JPanelViewBase;
-import View.MainWindowView;
-import View.Dialog.CommonDialogView;
 import View.Dialog.CommonDialogView.CommonDialogType;
-import View.Dialog.Listener.EditPeriodDialogViewListener;
-import View.Dialog.EditPeriodDialogView;
-import View.Todo.Board.TodoSideBoardPanel;
+import View.Dialog.Listener.*;
+import View.Dialog.*;
 import View.Todo.List.*;
+import View.Todo.Listener.TodoListContentPanelListener;
+import View.Todo.Listener.TodoListViewCommonListener;
 import View.Todo.Listener.TodoSideCommonPanelListener;
+import Entity.Enum.LogLevel;
+
 /**
  * リスト型表示の画面（左と右の部品を配置する画面）
  */
-public class TodoListView extends JPanelViewBase implements ITodoListView, TodoSideCommonPanelListener, ActionListener, EditPeriodDialogViewListener
+public class TodoListView extends JPanelViewBase implements ITodoListView, TodoSideCommonPanelListener, ActionListener, EditPeriodDialogViewListener, UpdateListDialogViewListener, UpdateTaskDialogViewListener, TodoListContentPanelListener
 {
-  // 親画面のインスタンス
-  public ITodoListBaseView BaseViewInstance;
-
   // TodoList(リスト型表示)コントローラ
   public ITodoListController Controller;
 
   // LeftJPanelのインスタンス
   private TodoSideCommonPanel TodoSideCommonPanel;
 
-  // LeftJPanel（ボード表示時）のインスタンス
-  private TodoSideBoardPanel TodoSideBoardPanel;
-
   // RightJPanelのインスタンス
   private TodoListContentPanel TodoListContentPanel;
-
-  // MainWindowViewのインスタンス
-  private IMainWindowView MainWindowViewInstance;
-
-  // ログイン中ユーザーのリスト
-  public List<UserList> List;
 
   // 選択中リストID
   private int SelectedListId;
@@ -64,31 +50,11 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
   // 選択中タスクテキスト
   private String SelectedTaskText;
 
-  // 選択中リストのタスク
-  public  List<UserTask> Task;
-
-  // リスト編集ダイアログ
-  JDialog ListDialog;
-
-  // タスク編集ダイアログ
-  JDialog TaskDialog;
-
-  // 期日編集ダイアログ
-  JDialog PeriodDialog;
-
-  // 修正用テキストフィールド
-  JTextField ListNameInputField;
-
-  // 修正用テキストフィールド
-  JTextField TaskNameInputField;
-
   // 期日修正用テキストフィールド（開始日）
   private JFormattedTextField StartDateInputField;
-  // private JTextField StartDateInputField;
 
   // 期日修正用テキストフィールド（終了日）
   private JFormattedTextField EndDateInputField;
-  // private JTextField EndDateInputField;
 
   // 共通ダイアログのインスタンス
   private CommonDialogView CommonDialogView;
@@ -102,18 +68,26 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
   // 期日ダイアログインスタンス
   private EditPeriodDialogView EditPeriodDialogView;
 
+  // リスト編集ダイアログ
+  private UpdateListDialogView UpdateListDialogView;
+
+  // タスク編集ダイアログ
+  private UpdateTaskDialogView UpdateTaskDialogView;
+
+  // イベントリスナインスタンス
+  protected EventListenerList ListenerList;
+
   /**
    * コンストラクタ
    * @param baseViewInstance 親画面のインスタンス
-   * @param mainWindowViewInstance MainWindowViewのインスタンス
    */
-  public TodoListView(ITodoListBaseView baseViewInstance, IMainWindowView mainWindowViewInstance, CommonDialogView commonDialogView, EditPeriodDialogView editPeriodDialogView)
+  public TodoListView(CommonDialogView commonDialogView, EditPeriodDialogView editPeriodDialogView, UpdateListDialogView updateListDialogView, UpdateTaskDialogView updateTaskDialogView)
   {
-    // TODO : 親画面のインスタンスは型依存ではなくinterface等に修正し依存しないようにする
-    // TODO : 親画面のインスタンスをView層で直接持つのは検討の余地あり
-    this.BaseViewInstance = baseViewInstance;
-    this.MainWindowViewInstance = mainWindowViewInstance;
     this.EditPeriodDialogView = editPeriodDialogView;
+    this.UpdateListDialogView = updateListDialogView;
+    this.UpdateTaskDialogView = updateTaskDialogView;
+
+    this.ListenerList = new EventListenerList();
 
     // ダイアログインスタンスを初期化
     this.CommonDialogView = commonDialogView;
@@ -128,7 +102,7 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
     this.TodoSideCommonPanel.setBounds(0,0,230,600);
 
     // 右要素作成（Panel）
-    this.TodoListContentPanel = new TodoListContentPanel(this);
+    this.TodoListContentPanel = new TodoListContentPanel();
     this.TodoListContentPanel.setBounds(230,0,769,600);
 
     // 左要素追加
@@ -155,31 +129,32 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
     this.CommonDialogView.Show(CommonDialogType.ListUpdateFailureDialog, true);
   }
 
+  /**
+   * タスク取得失敗ダイアログ表示
+   */
+  public void GetTaskFailureDialog()
+  {
+    this.CommonDialogView.Show(CommonDialogType.GetTaskFailureDialog, true);
+  }
+
   // タスク削除失敗ダイアログ表示
   public void TaskDeleteFailureDialog()
   {
     this.CommonDialogView.Show(CommonDialogType.TaskDeleteFailureDialog, true);
   }
 
-  /**
-   * 汎用ダイアログ
-   * @param dialogName
-   * @param operation
-   */
-  public void Dialog(String dialogName, String operation)
+  // タスク更新失敗ダイアログ表示
+  public void TaskUpdateFailureDialog()
   {
-    // JButton openDialogButton = new JButton("ダイアログを開く");
-    // openDialogButton.addActionListener(e -> {
-    // JDialogの作成(ownerとしてfreameを指定)
-    // TODO: キャスト処理は共通ダイアログにすると削除できる
-    JDialog dialog = new JDialog((JFrame)this.MainWindowViewInstance, dialogName, true);
-    dialog.setSize(400,150);
-    dialog.setLayout(null);
-    JLabel operationLabel = new JLabel(operation);
-    operationLabel.setBounds(20,20,350,70);
-    dialog.add(operationLabel);
-    dialog.setLocationRelativeTo(null);
-    dialog.setVisible(true);
+    this.CommonDialogView.Show(CommonDialogType.TaskUpdateFailureDialog, true);
+  }
+
+  /**
+   * タスク登録失敗ダイアログ表示
+   */
+  public void TaskCreateFailureDialog()
+  {
+    this.CommonDialogView.Show(CommonDialogType.TaskCreateFailureDialog, true);
   }
 
   /**
@@ -190,35 +165,8 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
   {
     this.SelectedListId = listid;
     this.SelectedListName = listName;
-
-    // ダイアログ名
-    // TODO: キャスト処理は共通ダイアログにすると削除できる
-    this.ListDialog = new JDialog((JFrame)this.MainWindowViewInstance, Constants.EDIT_DIALOG, true);
-    this.ListDialog.setSize(400,256);
-    this.ListDialog.setLayout(null);
-
-    // 指示文言
-    JLabel operationLabel = new JLabel(Constants.TASK_EDIT_OPERATION);
-    operationLabel.setBounds(76,10,350,35);
-    this.ListDialog.add(operationLabel);
-
-    // Text入力
-    this.ListNameInputField = new JTextField();
-    ListNameInputField.setText(this.SelectedListName);
-    ListNameInputField.setBounds(76,50,228,35);
-    ListNameInputField.setColumns(1);
-    this.ListDialog.add(ListNameInputField);
-
-    // 編集ボタン
-    JButton editButton = new JButton("編集");
-    editButton.setBounds(90,130,76,35);
-    editButton.setActionCommand("EditListName");
-    editButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-    this.ListDialog.add(editButton);
-    editButton.addActionListener(this);
-    this.ListDialog.setLocationRelativeTo(null);
-    this.ListDialog.setVisible(true);
-    // OKでもキャンセルでもダイアログを閉じる処理は入れるべき
+    this.UpdateListDialogView.AddListener(this);
+    this.UpdateListDialogView.Show(this.SelectedListName);
   }
 
   /**
@@ -228,35 +176,8 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
   {
     this.SelectedTaskId = taskId;
     this.SelectedTaskText = taskText;
-
-    // ダイアログ名
-    // TODO:キャスト処理は共通ダイアログにすると削除する
-    this.TaskDialog = new JDialog((JFrame)this.MainWindowViewInstance, Constants.EDIT_DIALOG, true);
-    this.TaskDialog.setSize(400, 256);
-    this.TaskDialog.setLayout(null);
-
-    // 指示文言
-    JLabel operationLabel = new JLabel(Constants.TASK_EDIT_OPERATION);
-    operationLabel.setBounds(76,10,350,35);
-    this.TaskDialog.add(operationLabel);
-
-    // Text入力
-    this.TaskNameInputField = new JTextField();
-    TaskNameInputField.setText(this.SelectedTaskText);
-    TaskNameInputField.setBounds(76,50,228,35);
-    TaskNameInputField.setColumns(1);
-    this.TaskDialog.add(TaskNameInputField);
-
-    // 編集ボタン
-    JButton editButton = new JButton("編集");
-    editButton.setBounds(90,130,76,35);
-    editButton.setActionCommand("EditTaskName");
-    editButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-    this.TaskDialog.add(editButton);
-    editButton.addActionListener(this);
-    this.TaskDialog.setLocationRelativeTo(null);
-    this.TaskDialog.setVisible(true);
-    // OKでもキャンセルでもダイアログを閉じる処理は入れるべき
+    this.UpdateTaskDialogView.AddListener(this);
+    this.UpdateTaskDialogView.Show(this.SelectedTaskText);
   }
 
   /**
@@ -268,18 +189,6 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
   {
     switch (e.getActionCommand())
     {
-      case "EditListName":
-        System.out.println("EditListNameボタンが押下された");
-        this.UpdateListClicked(this.SelectedListId);
-        break;
-      case "EditTaskName":
-        System.out.println("EditTaskNameボタンが押下された");
-        this.UpdateTaskClicked(this.SelectedTaskId);
-      case "EditPeriodDate":
-        System.out.println("EditPeriodDateボタンが押下された");
-        this.EditPeriodDateClicked(this.SelectedTaskId);
-        break;
-      //
       default:
         // ロジック上あり得ない
         break;
@@ -296,6 +205,7 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
     this.TodoSideCommonPanel.Show();
     this.TodoListContentPanel.Show();
     this.EditPeriodDialogView.AddListener(this);
+    this.TodoListContentPanel.AddListener(this);
   }
 
   /**
@@ -307,8 +217,27 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
     this.TodoSideCommonPanel.Hide();
     this.TodoListContentPanel.Hide();
     this.EditPeriodDialogView.RemoveListener(this);
+    this.TodoListContentPanel.RemoveListener(this);
   }
-  
+
+  /**
+   * リスナ対象追加
+   * @param listener 追加対象リスナインスタンス
+   */
+  public void AddListener(TodoListViewCommonListener listener)
+  {
+    this.ListenerList.add(TodoListViewCommonListener.class, listener);
+  }
+
+  /**
+   * リスナ対象削除
+   * @param listener 削除対象リスナインスタンス
+   */
+  public void RemoveListener(TodoListViewCommonListener listener)
+  {
+    this.ListenerList.remove(TodoListViewCommonListener.class, listener);
+  }
+
   /**
    * コントローラインスタンスを設定
    * @param controller コントローラインスタンス
@@ -324,7 +253,6 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
    */
   public void SetList(List<UserList> list)
   {
-    this.List = list;
     this.TodoSideCommonPanel.SetList(list);
   }
 
@@ -367,22 +295,44 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
 
   /**
    * リスト更新メソッド
-   * @param listId 画面の選択中リストID
+   * @param UpdateListName 画面の編集中リスト名
    */
-  public void UpdateListClicked(int listId)
+  public void UpdateListClicked(String UpdateListName)
   {
-    String listName = this.ListNameInputField.getText();
-    this.Controller.UpdateList(listId, listName);
+    this.UpdateListDialogView.RemoveListener(this);
+    this.UpdateListDialogView.Hide();
+    this.Controller.UpdateList(this.SelectedListId, UpdateListName);
+  }
+
+  /**
+   * 左側パネルの要素押下可否設定メソッド
+   * @param isDisabled 押下不可にする場合true、押下可能にする場合false
+   */
+  public void SideElementDisabled(boolean isDisabled)
+  {
+    this.TodoSideCommonPanel.ElementDisabled(isDisabled);
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面要素押下可否設定" + "(" + String.valueOf(isDisabled) + ")");});
+  }
+
+  /**
+   * 右側パネルの要素押下可否設定メソッド
+   * @param isDisabled 押下不可にする場合true、押下可能にする場合false
+   */
+  public void LeftElementDisabled(boolean isDisabled)
+  {
+    this.TodoListContentPanel.ElementDisabled(isDisabled);
+    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "画面要素押下可否設定" + "(" + String.valueOf(isDisabled) + ")");});
   }
 
   /**
    * タスク更新メソッド
-   * @param taskId 画面の選択中タスクID
+   * @param  UpdateTaskName 画面の編集中タスク名
    */
-  public void UpdateTaskClicked(int taskId)
+  public void UpdateTaskClicked(String UpdateTaskName)
   {
-    String taskText = this.TaskNameInputField.getText();
-    this.Controller.UpdateTask(taskId, taskText);
+    this.UpdateTaskDialogView.RemoveListener(this);
+    this.UpdateTaskDialogView.Hide();
+    this.Controller.UpdateTask(this.SelectedTaskId, UpdateTaskName);
   }
 
   /**
@@ -397,30 +347,6 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
     Date startDate = (Date)this.StartDateInputField.getValue();
     Date endDate = (Date)this.EndDateInputField.getValue();
     this.Controller.EditPeriodDate(taskId, startDate, endDate);
-  }
-
-  /**
-   * リスト編集ダイアログ閉
-   */
-  public void CloseListDialog()
-  {
-    this.ListDialog.dispose();
-  }
-
-  /**
-   * タスク編集ダイアログ閉
-   */
-  public void CloseTaskDialog()
-  {
-    this.TaskDialog.dispose();
-  }
-
-  /**
-   * 期日編集ダイアログ閉
-   */
-  public void ClosePeriodDialog()
-  {
-    this.PeriodDialog.dispose();
   }
 
   /**
@@ -439,7 +365,6 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
    */
   public void SetTask(List<UserTask> task, String listName)
   {
-    this.Task = task;
     this.TodoListContentPanel.SetTask(task, listName);
   }
 
@@ -457,7 +382,11 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
    */
   public void BoardButtonClicked()
   {
-    this.BaseViewInstance.ChangeView(TodoListBaseView.ViewType.TodoBoardView);
+    for (TodoListViewCommonListener listener : this.ListenerList.getListeners(TodoListViewCommonListener.class))
+    {
+      // ボードボタン押下を通知
+      listener.BoardButtonClicked();
+    }
   }
 
   /**
@@ -465,7 +394,11 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
    */
   public void ListButtonClicked()
   {
-    this.BaseViewInstance.ChangeView(TodoListBaseView.ViewType.TodoListView);
+    for (TodoListViewCommonListener listener : this.ListenerList.getListeners(TodoListViewCommonListener.class))
+    {
+      // リストボタン押下を通知
+      listener.ListButtonClicked();
+    }
   }
 
   /**
@@ -473,7 +406,21 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
    */
   public void GanttchartButtonClicked()
   {
-    this.BaseViewInstance.ChangeView(TodoListBaseView.ViewType.TodoGanttchartView);
+    for (TodoListViewCommonListener listener : this.ListenerList.getListeners(TodoListViewCommonListener.class))
+    {
+      // ガントチャートボタン押下を通知
+      listener.GanttchartButtonClicked();
+    }
+  }
+
+  /**
+   * AIリスト・タスク案作成画面ボタンクリック時の処理
+   */
+  public void AICreateListTaskButtonClicked() {
+      for (TodoListViewCommonListener listener : this.ListenerList.getListeners(TodoListViewCommonListener.class)) {
+      // AIリスト・タスク案作成ボタン押下を通知
+      listener.AICreateListTaskButtonClicked();
+      }
   }
 
   /**
@@ -532,6 +479,14 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
   }
 
   /**
+   * リスト情報取得失敗時ダイアログ表示
+   */
+  public void ShowGetUserListFailureDialog()
+  {
+    this.CommonDialogView.Show(CommonDialogType.GetUserListFailureDialog, true);
+  }
+
+  /**
    * Dateから文字列に変換
    * @param startDate 開始日
    * @param endDate 終了日
@@ -543,5 +498,19 @@ public class TodoListView extends JPanelViewBase implements ITodoListView, TodoS
     this.EndDate = sdf.format(endDate);
   }
 
+  /**
+   * タスク入力欄の監視
+   */
+  public void ChangeTextField(boolean isEmpty)
+  {
+    this.TodoListContentPanel.PlusButtonDisabled(isEmpty);
+  }
 
+  /**
+   * タスク入力欄の監視(cotrollerメソッド呼び出し)
+   */
+  public void ChangeTextField(String taskText)
+  {
+    this.Controller.ChangeTextField(taskText);
+  }
 }

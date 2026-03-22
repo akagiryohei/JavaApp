@@ -3,8 +3,9 @@ package Interface.View.Todo;
 import java.util.List;
 
 import Entity.UserList;
-import Entity.UserTask;
 import Interface.Controller.Todo.ITodoBoardController;
+import Interface.Model.ILogger;
+import View.Todo.Listener.TodoListViewCommonListener;
 
 /**
  * ボード型Todo画面Viewインタフェース
@@ -26,6 +27,18 @@ public interface ITodoBoardView
    * @param controller コントローラインスタンス
    */
   public void SetController(ITodoBoardController controller);
+
+  /**
+   * リスナ対象追加
+   * @param listener 追加対象リスナインスタンス
+   */
+  public void AddListener(TodoListViewCommonListener listener);
+  
+  /**
+   * リスナ対象削除
+   * @param listener 削除対象リスナインスタンス
+   */
+  public void RemoveListener(TodoListViewCommonListener listener);
 
   /**
    * ボードボタンクリック時の処理
@@ -69,14 +82,19 @@ public interface ITodoBoardView
   public void TaskDeleteFailureDialog();
 
   /**
-   * タスク編集ダイアログ閉
+   * タスク更新失敗ダイアログ
    */
-  public void CloseTaskDialog();
+  public void TaskUpdateFailureDialog();
 
   /**
-   * リスト編集ダイアログ閉
+   * タスク登録失敗ダイアログ
    */
-  public void CloseListDialog();
+  public void TaskCreateFailureDialog();
+
+  /**
+   * リストおよびタスク取得失敗時ダイアログ表示
+   */
+  public void GetListAndTaskFailureDialog();
 
   /**
    * チェックボタン押下時処理
@@ -91,5 +109,23 @@ public interface ITodoBoardView
    * @param taskText タスクテキスト
    */
   public void CreateUserTask(int listId, String taskText);
+
+  /**
+   * 左側パネルの要素押下可否設定メソッド
+   * @param isDisabled 押下不可にする場合true、押下可能にする場合false
+   */
+  public void SideElementDisabled(boolean isDisabled);
+
+  /**
+   * 右側パネルの要素押下可否設定メソッド
+   * @param isDisabled 押下不可にする場合true、押下可能にする場合false
+   */
+  public void LeftElementDisabled(boolean isDisabled);
+
+    /**
+    * ロガーインスタンスを依存性注入する
+    * @param ロガーインスタンス
+    */
+  public void SetLogger(ILogger logger);
 
 }

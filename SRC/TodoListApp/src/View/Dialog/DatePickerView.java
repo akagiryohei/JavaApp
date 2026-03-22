@@ -109,11 +109,11 @@ public class DatePickerView extends JDialog implements ActionListener, ItemListe
         this.getContentPane().add(this.YearMonthPanel);
         this.getContentPane().add(this.CalendarPanel);
 
-        this.PrevMonthButton = new JButton("<");
+        this.PrevMonthButton = new JButton("<<");
         this.PrevMonthButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         this.PrevMonthButton.setAlignmentY(Component.CENTER_ALIGNMENT);
 
-        this.NextMonthButton = new JButton(">");
+        this.NextMonthButton = new JButton(">>");
         this.NextMonthButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         this.NextMonthButton.setAlignmentY(Component.CENTER_ALIGNMENT);
 

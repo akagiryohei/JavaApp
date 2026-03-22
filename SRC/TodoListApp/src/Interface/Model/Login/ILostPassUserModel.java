@@ -1,8 +1,12 @@
 package Interface.Model.Login;
 
+import java.util.Date;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 import Entity.Pair;
 import Entity.UserData;
+import Interface.Model.Process.Login.ILoginProcess;
 import Interface.Model.Process.Login.ILoginProcess.ResultType;
 
 /**
@@ -19,6 +23,20 @@ public interface ILostPassUserModel
   public void GetUserSecretTips(String email, Consumer<Boolean> isBusyChanged, Consumer<Pair<ResultType, String>> finished);
 
   /**
+   * Supportボタンの押下可否を判定
+   * @param email メールアドレス
+   * @return true 押下可能, false 押下不可
+  */
+  public Boolean GetSupportButtonPossibility(String email);
+
+  /**
+   * Try Loginボタンの押下可否を判定
+   * @param email メールアドレス
+   * @return true 押下可能, false 押下不可
+  */
+  public Boolean GetLoginButtonPossibility(String email, String SecretPassword);
+  
+  /**
    * 忘却者ログイン認証
    * @param email 対象アカウントのメールアドレス
    * @param secretPassword 対象アカウントの秘密のパスワード
@@ -26,4 +44,13 @@ public interface ILostPassUserModel
    * @param finished 処理完了イベントコールバック
   */
   public void LostPassUserLoginAuth(String email, String secretPassword, Consumer<Boolean> isBusyChanged, Consumer<Pair<ResultType, UserData>> finished);
+
+  /**
+   * Reminderリスト取得
+   * @param userId 対象アカウントのユーザーID
+   * @param clickedDate 実行時の日付
+   * @param isBusyChanged 処理中イベントコールバック
+   * @param resultValue 処理完了イベントコールバック
+  */
+  public void GetReminderList(String userId, Date clickedDate, Consumer<Boolean> isBusyChanged, Consumer<Pair<ILoginProcess.ResultType,List<ArrayList<String>>>> resultValue);
 }

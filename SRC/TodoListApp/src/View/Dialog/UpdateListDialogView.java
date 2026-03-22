@@ -7,7 +7,6 @@ import javax.swing.JTextField;
 import javax.swing.event.EventListenerList;
 import java.awt.event.*;
 import Entity.Dialog.Constants;
-import View.Dialog.Listener.EditPeriodDialogViewListener;
 import View.Dialog.Listener.UpdateListDialogViewListener;
 
 public class UpdateListDialogView extends JDialog implements ActionListener
@@ -20,19 +19,22 @@ public class UpdateListDialogView extends JDialog implements ActionListener
     private JButton EditButton;
     /** イベントリスナインスタンス */
     protected EventListenerList ListenerList;
+    /** ダイアログ定数クラス */
+    private Constants Constants;
 
     /**
      * コンストラクタ
      */
-    public UpdateListDialogView()
+    public UpdateListDialogView(Constants constants)
     {
+        this.Constants = constants;
         this.setSize(400, 256);
         this.setLayout(null);
-        this.setTitle(Constants.EDIT_DIALOG);
+        this.setTitle(this.Constants.EDIT_DIALOG);
         this.ListenerList = new EventListenerList();
 
         // 指示文言
-        this.OperationLabel = new JLabel(Constants.TASK_EDIT_OPERATION);
+        this.OperationLabel = new JLabel(this.Constants.LIST_EDIT_OPERATION);
         this.OperationLabel.setBounds(76, 10, 350, 35);
         this.add(this.OperationLabel);
 
