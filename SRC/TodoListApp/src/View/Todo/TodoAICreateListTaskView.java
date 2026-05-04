@@ -42,7 +42,10 @@ public class TodoAICreateListTaskView extends JPanelViewBase implements ITodoAIC
      */
     public TodoAICreateListTaskView(CommonDialogView commonDialogView)
     {
+        // this.setLayout(new FlowLayout());
         this.setLayout(null);
+        // this.setBackground(Color.BLACK);
+
         // ダイアログ
         this.CommonDialogView = commonDialogView;
         // 左画面作成

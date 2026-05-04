@@ -90,6 +90,7 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
         this.AddListTaskButton.removeActionListener(this);
         this.EditListNameButton.removeActionListener(this);
         this.Clear();
+
     }
 
     /**
@@ -276,13 +277,20 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
 
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        // mainPanel.setLayout(new BorderLayout(10,10));
+        // mainPanel.setBorder(BorderFactory.createEmptyBorder(20,20,20,20)); // メインパネルの余白
+
+        // mainPanel.add(topPanel, BorderLayout.NORTH);
+        // mainPanel.add(this.PreviewPanel, BorderLayout.CENTER);
         mainPanel.add(topPanel);
         mainPanel.add(this.PreviewPanel);
+
 
         this.ScrollPanel = new JScrollPane(mainPanel);
         this.ScrollPanel.setBackground(Color.CYAN);
         this.ScrollPanel.setBounds(0,0,757,565);
         this.add(this.ScrollPanel);
+
     }
 
     /**
@@ -402,7 +410,6 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
         if (userInput.isEmpty() || addUserInput.isEmpty())
         {
             // TODO: ダイアログを呼ぶ
-            System.out.println("指示文言か、追加文言が空です");
             return;
         }
         else
@@ -437,6 +444,7 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
         for (TodoAICreateListTaskContentPanelListener listener : this.ListenerList.getListeners(TodoAICreateListTaskContentPanelListener.class)) {
             listener.EditAIList(userEditListName);
         }
+
     }
 
     /**

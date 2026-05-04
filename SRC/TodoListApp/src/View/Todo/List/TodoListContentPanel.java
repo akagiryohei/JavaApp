@@ -563,26 +563,32 @@ public class TodoListContentPanel extends JPanelViewBase implements ActionListen
         this.WithLogger((logger) -> {
             logger.WriteLog(LogLevel.Info, "画面要素押下可否設定" + "(" + String.valueOf(isDisabled) + ")");
         });
-        this.PlusButton.setEnabled(isDisabled);
-        this.PeriodButton.setEnabled(isDisabled);
-        if (this.TaskPeriodButton.length > 0) {
-            for (int i = 0; i < this.TaskPeriodButton.length; i++) {
-                this.TaskPeriodButton[i].setEnabled(isDisabled);
+        this.PlusButton.setEnabled(!isDisabled);
+        this.PeriodButton.setEnabled(!isDisabled);
+        if (this.TaskPeriodButton != null) {
+            if (this.TaskPeriodButton.length > 0) {
+                for (int i = 0; i < this.TaskPeriodButton.length; i++) {
+                    this.TaskPeriodButton[i].setEnabled(!isDisabled);
+                }
             }
         }
-        this.NewTaskNameLabel.setEnabled(isDisabled);
-        if (this.IncCheckBox.length > 0) {
-            for (int i = 0; i < this.IncCheckBox.length; i++) {
-                this.IncCheckBox[i].setEnabled(isDisabled);
+        this.NewTaskNameLabel.setEnabled(!isDisabled);
+        if (this.IncCheckBox != null) {
+            if (this.IncCheckBox.length > 0) {
+                for (int i = 0; i < this.IncCheckBox.length; i++) {
+                    this.IncCheckBox[i].setEnabled(!isDisabled);
+                }
             }
         }
-        if (this.ConCheckBox.length > 0) {
-            for (int i = 0; i < this.ConCheckBox.length; i++) {
-                this.ConCheckBox[i].setEnabled(isDisabled);
+        if (this.ConCheckBox != null) {
+            if (this.ConCheckBox.length > 0) {
+                for (int i = 0; i < this.ConCheckBox.length; i++) {
+                    this.ConCheckBox[i].setEnabled(!isDisabled);
+                }
             }
         }
     }
-
+    
     /**
      * リスナ対象追加
      * @param listener 追加するリスナ

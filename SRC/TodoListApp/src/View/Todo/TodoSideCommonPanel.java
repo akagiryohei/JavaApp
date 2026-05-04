@@ -321,6 +321,7 @@ public class TodoSideCommonPanel extends TodoSideBasePanel implements ActionList
      */
     public void SetList(List<UserList> list)
     {
+        this.UserLists.clear();
         this.ListModel.clear();
         list.forEach(listItem -> {
             this.UserLists.add(listItem.Clone());

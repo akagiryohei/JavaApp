@@ -401,7 +401,7 @@ public class TodoProcess implements ITodoProcess
 
 
   /**
-   * ユーザータスク登録タスク(複数)
+   * ユーザータスク登録タスク(単体)
    */
   private class CreateUserTasksTask implements Callable
   {
@@ -1260,6 +1260,7 @@ public class TodoProcess implements ITodoProcess
         finished.accept(ret);
       }
     };
+
     /** LMStudio呼び出しもExecutorで実行するようキューに追加 */
     // DBQueueでも問題ないが名称がDB特化なのでコメント残す
     this.DBQueue.submit(task);

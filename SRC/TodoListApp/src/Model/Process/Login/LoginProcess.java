@@ -128,7 +128,7 @@ public class LoginProcess implements ILoginProcess
 
         switch (result.Value1)
         {
-          case Success:
+          case DBResultType.Success:
             if (result.Value2 != null && result.Value2.Id != "")
             {
               // アカウントが見つかり、パスワードが合致していた
@@ -141,11 +141,11 @@ public class LoginProcess implements ILoginProcess
             }
 
             break;
-          case Failure:
+          case DBResultType.Failure:
             // DB処理で異常が発生した（クエリ実行エラーやライブラリエラーなど）
             retResult = ResultType.Failure;
             break;
-          case Timeout:
+          case DBResultType.Timeout:
             // DB処理でタイムアウトが発生した
             retResult = ResultType.Timeout;
             break;
@@ -218,14 +218,14 @@ public class LoginProcess implements ILoginProcess
 
         switch (result)
         {
-          case Success:
+          case DBResultType.Success:
             retResult = ResultType.Success;
             break;
-          case Failure:
+          case DBResultType.Failure:
             // DB処理で異常が発生した（クエリ実行エラーやライブラリエラーなど）
             retResult = ResultType.Failure;
             break;
-          case Timeout:
+          case DBResultType.Timeout:
             // DB処理でタイムアウトが発生した
             retResult = ResultType.Timeout;
             break;
@@ -281,14 +281,14 @@ public class LoginProcess implements ILoginProcess
           result2 = this.DBClient.GetSecret(result.Value2);
           switch (result2.Value1)
           {
-            case Success:
+            case DBResultType.Success:
               retResult = ResultType.Success;
               break;
-            case Failure:
+            case DBResultType.Failure:
               // DB処理で異常が発生した（クエリ実行エラーやライブラリエラーなど）
               retResult = ResultType.Failure;
               break;
-            case Timeout:
+            case DBResultType.Timeout:
               // DB処理でタイムアウトが発生した
               retResult = ResultType.Timeout;
               break;
@@ -302,14 +302,14 @@ public class LoginProcess implements ILoginProcess
         {
           switch (result.Value1)
           {
-            case Success:
+            case DBResultType.Success:
               // ここに到達することはあり得ない
               break;
-            case Failure:
+            case DBResultType.Failure:
               // DB処理で異常が発生した（クエリ実行エラーやライブラリエラーなど）
               retResult = ResultType.Failure;
               break;
-            case Timeout:
+            case DBResultType.Timeout:
               // DB処理でタイムアウトが発生した
               retResult = ResultType.Timeout;
               break;
@@ -375,7 +375,7 @@ public class LoginProcess implements ILoginProcess
 
         switch (result.Value1)
         {
-          case Success:
+          case DBResultType.Success:
             if (result.Value2 != null && result.Value2.Id != "")
             {
               // アカウントが見つかり、パスワードが合致していた
@@ -387,11 +387,11 @@ public class LoginProcess implements ILoginProcess
               retResult = ResultType.SuccessNotFoundAccount;
             }
             break;
-          case Failure:
+          case DBResultType.Failure:
             // DB処理で異常が発生した（クエリ実行エラーやライブラリエラーなど）
             retResult = ResultType.Failure;
             break;
-          case Timeout:
+          case DBResultType.Timeout:
             // DB処理でタイムアウトが発生した
             retResult = ResultType.Timeout;
             break;
@@ -466,16 +466,16 @@ public class LoginProcess implements ILoginProcess
 
         switch (result.Value1)
         {
-          case Success:
+          case DBResultType.Success:
             // 未完了タスクが見つかった
             retResult = ResultType.Success;
             break;
-          case Failure:
+          case DBResultType.Failure:
             // DB処理で異常が発生した（クエリ実行エラーやライブラリエラーなど）
             taskList.clear();
             retResult = ResultType.Failure;
             break;
-          case Timeout:
+          case DBResultType.Timeout:
             // DB処理でタイムアウトが発生した
             taskList.clear();
             retResult = ResultType.Timeout;
@@ -571,7 +571,7 @@ public class LoginProcess implements ILoginProcess
 
           switch (result.Value1)
           {
-            case Success:
+            case DBResultType.Success:
               if (result.Value2 != null)
               {
                 // アカウントが見つかり、パスワードが合致していた
@@ -584,11 +584,11 @@ public class LoginProcess implements ILoginProcess
               }
 
               break;
-            case Failure:
+            case DBResultType.Failure:
               // DB処理で異常が発生した（クエリ実行エラーやライブラリエラーなど）
               retResult = ResultType.Failure;
               break;
-            case Timeout:
+            case DBResultType.Timeout:
               // DB処理でタイムアウトが発生した
               retResult = ResultType.Timeout;
               break;
