@@ -1,17 +1,14 @@
 package View.Todo;
 
+import javax.swing.event.EventListenerList;
+
+import Entity.AIListTask;
+import Entity.Enum.LogLevel;
 import Interface.Controller.Todo.ITodoAICreateListTaskController;
 import Interface.View.Todo.ITodoAICreateListTaskView;
 import View.JPanelViewBase;
 import View.Dialog.CommonDialogView;
 import View.Dialog.CommonDialogView.CommonDialogType;
-
-import java.awt.event.ActionEvent;
-
-import javax.swing.event.EventListenerList;
-
-import Entity.AIListTask;
-import Entity.Enum.LogLevel;
 import View.Todo.AICreateLIstTask.TodoAICreateListTaskContentPanel;
 import View.Todo.Board.TodoSideBoardPanel;
 import View.Todo.Listener.TodoAICreateListTaskContentPanelListener;
@@ -90,24 +87,11 @@ public class TodoAICreateListTaskView extends JPanelViewBase implements ITodoAIC
     }
 
     /**
-     * ボタンからのアクションリスナー
-     */
-    public void actionPerformed(ActionEvent e)
-    {
-        switch (e.getActionCommand())
-        {
-            default:
-                break;
-        }
-    }
-
-    /**
      * ユーザ名を設定する
      * @param userName ユーザー名
      */
     public void SetUserName(String userName)
     {
-        //TODO:サイドパネルを用意した上で実装予定
         this.TodoSideBoardPanel.SetUserName(userName);
     }
 

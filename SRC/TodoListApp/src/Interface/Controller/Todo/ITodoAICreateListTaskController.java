@@ -64,9 +64,6 @@ public interface ITodoAICreateListTaskController
 
     /**
      * リスト削除メソッド
-     * @param listId 画面選択リストID
-     * @param isBusyChanged 処理中イベントコールバック
-     * @param finished 処理完了コールバック
      */
     public void DeleteList();
 

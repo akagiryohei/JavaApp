@@ -1,30 +1,33 @@
 package Model;
 
-import Interface.Model.ILMStudioAPIClient;
-import Interface.Model.ILogger;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
-import okhttp3.MediaType;
-
 import java.io.IOException;
 import java.net.ConnectException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import Entity.LMStudio.LMStudioAPIClientDtoPair;
-import Entity.LMStudio.LMStudioResultType;
+import Entity.AIListTask;
+import Entity.Pair;
+import Entity.AI.AIResultType;
+import Interface.Model.IAIAPIClient;
+import Interface.Model.ILogger;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 /**
  * AI接続用クライアントクラス
  */
-public class LMStudioAPIClient implements ILMStudioAPIClient{
+public class LMStudioAPIClient implements IAIAPIClient{
 
 /** 接続先サーバー */
     private String BaseUrl;
@@ -80,98 +83,16 @@ public class LMStudioAPIClient implements ILMStudioAPIClient{
     {
         this.Logger = logger;
     }
-    
-    /**
-     * LM Studioに問い合わせを行う(サンプル用、JsonObjectで返す)
-     * @param userInput ユーザ入力
-     * @return
-     * @throws Exception
-     */
-    @Override
-    public String askSample(String userInput) throws Exception {
-        OkHttpClient client = new OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)  // 接続タイムアウト: 30秒
-        .readTimeout(60, TimeUnit.SECONDS)     // 読み取りタイムアウト: 60秒
-        .writeTimeout(30, TimeUnit.SECONDS)    // 書き込みタイムアウト: 30秒
-        .callTimeout(120, TimeUnit.SECONDS)    // 全体タイムアウト: 120秒（オプション）
-        .build();
-        
-        // 送信先URL作成
-        // TODO: URLの作成処理などは外に出して部品化する必要がある
-        String url = BaseUrl + ChatPath;
-
-        // ルートオブジェクト作成
-        // JSON作成
-        // ルートオブジェクト作成
-        JsonObject root = new JsonObject();
-        root.addProperty("model", ModelName);
-
-        // メッセージ配列作成
-        JsonArray messages = new JsonArray();
-
-        // システムメッセージ作成
-        JsonObject systemMessage = new JsonObject();
-        systemMessage.addProperty("role", "system");
-        systemMessage.addProperty("content", SystemPrompt);
-
-        // ユーザーメッセージ作成
-        JsonObject userMessage = new JsonObject();
-        userMessage.addProperty("role", "user");
-        userMessage.addProperty("content", userInput);
-        
-        // メッセージ配列に追加
-        messages.add(systemMessage);
-        messages.add(userMessage);
-
-        // ルートオブジェクトにメッセージ配列を追加
-        root.add("messages", messages);
-
-        // JSON文字列に変換
-        String requestBody = root.toString();
-
-        MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-        RequestBody body = RequestBody.create(JSON, requestBody);
-
-        // リクエスト作成
-        Request request = new Request.Builder()
-            .url(url)
-            .post(body)
-            .build();
-
-        // リクエスト送信とレスポンス取得
-        try (Response response = client.newCall(request).execute()) {
-            // レスポンス状態の判定
-            if (response.isSuccessful()) {
-                // body部分を文字列として取得
-                String bodyStr = response.body().string();
-                // Gsonで文字列をパース、JSONオブジェクトとして取得
-                JsonObject jsonResponse = JsonParser.parseString(bodyStr).getAsJsonObject();
-                // TODO: 返す時にはjsonResponseをそのままでOK
-                return jsonResponse.getAsJsonArray("choices")
-                    .get(0).getAsJsonObject()
-                    .getAsJsonObject("message")
-                    .get("content").getAsString();
-            } else {
-                String bodyStr = response.body().string();
-                throw new RuntimeException("API request failed with status: " + response.code() + ", body: " + response.body().string());
-            }
-        }catch (IOException e) {
-            System.out.println("★★★ IOException CATCH に入りました ★★★");
-            System.out.println(e);
-            throw new ConnectException("Failed to connect to LM Studio server at " + url + ". Please ensure the server is running and accessible.");
-        }
-    }
 
     /**
-     * LM Studioに問い合わせを行う
+     * AIにタスク生成の問い合わせを行う
      * @param userInput ユーザ入力
-     * @return
-     * @throws Exception
+     * @return 処理結果とAIListTask（プラットフォーム非依存）
      */
     @Override
-    public LMStudioAPIClientDtoPair<LMStudioResultType, JsonObject> Ask(String userInput) throws Exception {
+    public Pair<AIResultType, AIListTask> Ask(String userInput) {
         // 初期値は失敗を持っておく
-        LMStudioResultType result = LMStudioResultType.Failure;
+        AIResultType result = AIResultType.Failure;
 
         // クライアント作成(タイムアウト設定付き)
         OkHttpClient client = new OkHttpClient.Builder()
@@ -180,40 +101,17 @@ public class LMStudioAPIClient implements ILMStudioAPIClient{
         .writeTimeout(30, TimeUnit.SECONDS)    // 書き込みタイムアウト: 30秒
         .callTimeout(120, TimeUnit.SECONDS)    // 全体タイムアウト: 120秒（オプション）
         .build();
-        
+
         // 送信先URL作成
         // TODO: URLの作成処理などは外に出して部品化する必要がある
         String url = BaseUrl + ChatPath;
 
-        // ルートオブジェクト作成
         // JSON作成
         // ルートオブジェクト作成
-        JsonObject root = new JsonObject();
-        root.addProperty("model", ModelName);
-
-        // メッセージ配列作成
-        JsonArray messages = new JsonArray();
-
-        // システムメッセージ作成
-        JsonObject systemMessage = new JsonObject();
-        systemMessage.addProperty("role", "system");
-        systemMessage.addProperty("content", SystemPrompt);
-
-        // ユーザーメッセージ作成
-        JsonObject userMessage = new JsonObject();
-        userMessage.addProperty("role", "user");
-        userMessage.addProperty("content", userInput);
-        
-        // メッセージ配列に追加
-        messages.add(systemMessage);
-        messages.add(userMessage);
-
-        // ルートオブジェクトにメッセージ配列を追加
-        root.add("messages", messages);
+        JsonObject root = this.CreateRequestJson(ModelName, SystemPrompt, userInput, Optional.empty());
 
         // JSON文字列に変換
         String requestBody = root.toString();
-
         MediaType JSON = MediaType.parse("application/json; charset=utf-8");
         RequestBody body = RequestBody.create(JSON, requestBody);
 
@@ -222,51 +120,38 @@ public class LMStudioAPIClient implements ILMStudioAPIClient{
             .url(url)
             .post(body)
             .build();
+
         // リクエスト送信とレスポンス取得
         try (Response response = client.newCall(request).execute()) {
             // レスポンス状態の判定
             if (response.isSuccessful()) {
                 // body部分を文字列として取得
                 String bodyStr = response.body().string();
-                // Gsonで文字列をパース、JSONオブジェクトとして取得
-                JsonObject jsonResponse = JsonParser.parseString(bodyStr).getAsJsonObject();
-                result = LMStudioResultType.Success;
-                // TODO: 返す時にはjsonResponseをそのままでOK
-                return new LMStudioAPIClientDtoPair<LMStudioResultType, JsonObject>(result, jsonResponse);
+                return new Pair<>(AIResultType.Success, ParseAIListTask(bodyStr));
             } else {
-                // 失敗時もステータスや内容を取得できるようにする
-                // body部分を文字列として取得
-                String bodyStr = response.body().string();
-                // Gsonで文字列をパース、JSONオブジェクトとして取得
-                JsonObject jsonResponse = JsonParser.parseString(bodyStr).getAsJsonObject();
-                // ステータスコードも追加しておく
-                jsonResponse.addProperty("httpStatusCode", response.code());
                 // 失敗時処理
-                return new LMStudioAPIClientDtoPair<LMStudioResultType,JsonObject>(result, jsonResponse);
+                return new Pair<>(AIResultType.Failure, new AIListTask());
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             // TODO:ロガーに置き換える
             System.out.println("★★★ IOException CATCH に入りました ★★★");
             System.out.println(e);
             // 失敗時処理
             // 空インスタンスを返す
-            JsonObject jsonResponse = new JsonObject();
-            return new LMStudioAPIClientDtoPair<LMStudioResultType,JsonObject>(result, jsonResponse);
+            return new Pair<>(AIResultType.Failure, new AIListTask());
         }
     }
 
     /**
-     * LM Studioにタスク再生成の問い合わせを行う
+     * AIにタスク再生成の問い合わせを行う
      * @param userInput ユーザ入力
      * @param addUserInput 追加ユーザ入力
-     * @return
-     * @throws Exception
+     * @return 処理結果とAIListTask（プラットフォーム非依存）
      */
     @Override
-    public LMStudioAPIClientDtoPair<LMStudioResultType, JsonObject> ReAsk(String userInput, String addUserInput) throws Exception {
-
+    public Pair<AIResultType, AIListTask> ReAsk(String userInput, String addUserInput) {
         // 初期値は失敗を持っておく
-        LMStudioResultType result = LMStudioResultType.Failure;
+        AIResultType result = AIResultType.Failure;
 
         // クライアント作成(タイムアウト設定付き)
         OkHttpClient client = new OkHttpClient.Builder()
@@ -275,40 +160,17 @@ public class LMStudioAPIClient implements ILMStudioAPIClient{
         .writeTimeout(30, TimeUnit.SECONDS)    // 書き込みタイムアウト: 30秒
         .callTimeout(120, TimeUnit.SECONDS)    // 全体タイムアウト: 120秒（オプション）
         .build();
-        
+
         // 送信先URL作成
         // TODO: URLの作成処理などは外に出して部品化する必要がある
         String url = BaseUrl + ChatPath;
 
         // JSON作成
         // ルートオブジェクト作成
-        JsonObject root = new JsonObject();
-        root.addProperty("model", ModelName);
-
-        // メッセージ配列作成
-        JsonArray messages = new JsonArray();
-
-        // システムメッセージ作成
-        JsonObject systemMessage = new JsonObject();
-        systemMessage.addProperty("role", "system");
-        systemMessage.addProperty("content", SystemPrompt);
-
-        // 追加指示付きユーザーメッセージ作成
-        String combinedUserInput = userInput + "\n追加指示: " + addUserInput;
-        JsonObject userMessage = new JsonObject();
-        userMessage.addProperty("role", "user");
-        userMessage.addProperty("content", combinedUserInput);
-        
-        // メッセージ配列に追加
-        messages.add(systemMessage);
-        messages.add(userMessage);
-
-        // ルートオブジェクトにメッセージ配列を追加
-        root.add("messages", messages);
+        JsonObject root = this.CreateRequestJson(ModelName, SystemPrompt, userInput, Optional.of(addUserInput));
 
         // JSON文字列に変換
         String requestBody = root.toString();
-
         MediaType JSON = MediaType.parse("application/json; charset=utf-8");
         RequestBody body = RequestBody.create(JSON, requestBody);
 
@@ -324,30 +186,83 @@ public class LMStudioAPIClient implements ILMStudioAPIClient{
             if (response.isSuccessful()) {
                 // body部分を文字列として取得
                 String bodyStr = response.body().string();
-                // Gsonで文字列をパース、JSONオブジェクトとして取得
-                JsonObject jsonResponse = JsonParser.parseString(bodyStr).getAsJsonObject();
-                result = LMStudioResultType.Success;
-                // TODO: 返す時にはjsonResponseをそのままでOK
-                return new LMStudioAPIClientDtoPair<LMStudioResultType, JsonObject>(result, jsonResponse);
+                return new Pair<>(AIResultType.Success, ParseAIListTask(bodyStr));
             } else {
-                // 失敗時もステータスや内容を取得できるようにする
-                // body部分を文字列として取得
-                String bodyStr = response.body().string();
-                // Gsonで文字列をパース、JSONオブジェクトとして取得
-                JsonObject jsonResponse = JsonParser.parseString(bodyStr).getAsJsonObject();
-                // ステータスコードも追加しておく
-                jsonResponse.addProperty("httpStatusCode", response.code());
                 // 失敗時処理
-                return new LMStudioAPIClientDtoPair<LMStudioResultType,JsonObject>(result, jsonResponse);
+                return new Pair<>(AIResultType.Failure, new AIListTask());
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             // TODO:ロガーに置き換える
             System.out.println("★★★ IOException CATCH に入りました ★★★");
             System.out.println(e);
             // 失敗時処理
             // 空インスタンスを返す
-            JsonObject jsonResponse = new JsonObject();
-            return new LMStudioAPIClientDtoPair<LMStudioResultType,JsonObject>(result, jsonResponse);
+            return new Pair<>(AIResultType.Failure, new AIListTask());
         }
+    }
+
+    private JsonObject CreateRequestJson(String modelName, String systemPrompt, String userInput, Optional<String> addUserInput)
+    {
+        // JSON作成
+        // ルートオブジェクト作成
+        JsonObject root = new JsonObject();
+        root.addProperty("model", modelName);
+
+        // メッセージ配列作成
+        JsonArray messages = new JsonArray();
+
+        // システムメッセージ作成
+        JsonObject systemMessage = new JsonObject();
+        systemMessage.addProperty("role", "system");
+        systemMessage.addProperty("content", systemPrompt);
+
+        messages.add(systemMessage);
+
+        if (addUserInput.isPresent()) {
+            // 追加指示付きユーザーメッセージ作成
+            String combinedUserInput = userInput + "\n追加指示: " + addUserInput.get();
+            JsonObject userMessage = new JsonObject();
+            userMessage.addProperty("role", "user");
+            userMessage.addProperty("content", combinedUserInput);
+            messages.add(userMessage);
+        } else {
+            // 通常のユーザーメッセージ作成
+            JsonObject userMessage = new JsonObject();
+            userMessage.addProperty("role", "user");
+            userMessage.addProperty("content", userInput);
+            messages.add(userMessage);
+        }
+        root.add("messages", messages);
+        return root;
+    }
+
+    /**
+     * LMStudio固有のレスポンスJSON文字列をAIListTaskに変換する
+     * @param responseBody HTTPレスポンスのbody文字列
+     * @return AIListTask
+     */
+    private AIListTask ParseAIListTask(String responseBody) {
+        JsonObject jsonResponse = JsonParser.parseString(responseBody).getAsJsonObject();
+        String jsonContent = jsonResponse.getAsJsonArray("choices")
+            .get(0).getAsJsonObject()
+            .getAsJsonObject("message")
+            .get("content").getAsString();
+        jsonContent = jsonContent
+            .replaceAll("^```json", "")
+            .replaceAll("^```", "")
+            .replaceAll("```$", "")
+            .trim();
+
+        System.out.println(jsonContent);
+
+        JsonObject contentJson = JsonParser.parseString(jsonContent).getAsJsonObject();
+        AIListTask aiListTask = new AIListTask();
+        aiListTask.listName = contentJson.get("リスト名").getAsString();
+
+        JsonArray tasksArray = contentJson.getAsJsonArray("タスク");
+        for (JsonElement taskElement : tasksArray) {
+            aiListTask.tasks.add(taskElement.getAsString());
+        }
+        return aiListTask;
     }
 }

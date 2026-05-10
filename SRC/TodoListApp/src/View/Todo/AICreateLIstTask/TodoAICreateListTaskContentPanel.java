@@ -13,6 +13,7 @@ import View.Todo.Listener.TodoSideBoardPanelListener;
 import javax.swing.event.EventListenerList;
 import Entity.Enum.LogLevel;
 import java.util.List;
+import java.util.function.Consumer;
 import Entity.AIListTask;
 
 
@@ -48,6 +49,12 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
     private JPanel PreviewPanel;
     /** 削除ボタン */
     private JButton[] RemoveButton;
+    /** タスク生成ボタンのホバーリスナー */
+    private MouseAdapter CreateTaskButtonHoverListener;
+    /** タスク再生成ボタンのホバーリスナー */
+    private MouseAdapter RefineTaskButtonHoverListener;
+    /** リストタスク追加ボタンのホバーリスナー */
+    private MouseAdapter AddListTaskButtonHoverListener;
     /** イベントリスナインスタンス */
     protected EventListenerList ListenerList;
 
@@ -89,6 +96,10 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
         this.RefineTaskButton.removeActionListener(this);
         this.AddListTaskButton.removeActionListener(this);
         this.EditListNameButton.removeActionListener(this);
+        // ホバーエフェクトのMouseListenerを解除
+        this.CreateTaskButton.removeMouseListener(this.CreateTaskButtonHoverListener);
+        this.RefineTaskButton.removeMouseListener(this.RefineTaskButtonHoverListener);
+        this.AddListTaskButton.removeMouseListener(this.AddListTaskButtonHoverListener);
         this.Clear();
 
     }
@@ -108,7 +119,8 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
         ));
 
         // タスク生成ボタン
-        this.CreateTaskButton = this.CreateStyleButton("AIによるタスク生成", new Color(102, 126, 234), Color.WHITE);
+        this.CreateTaskButton = this.CreateStyleButton("AIによるタスク生成", new Color(102, 126, 234), Color.WHITE,
+            l -> this.CreateTaskButtonHoverListener = l);
         this.CreateTaskButton.setActionCommand("CreateListTaskButton");
 
         //リスト名入力フィールド
@@ -139,11 +151,13 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
         ));
 
         // タスク再生成ボタン
-        this.RefineTaskButton = this.CreateStyleButton("リストとタスクの再生成", Color.RED, Color.WHITE);
+        this.RefineTaskButton = this.CreateStyleButton("リストとタスクの再生成", Color.RED, Color.WHITE,
+            l -> this.RefineTaskButtonHoverListener = l);
         this.RefineTaskButton.setActionCommand("RefineTaskButton");
 
         // リストタスク追加ボタン(TODOリスト追加ボタン)
-        this.AddListTaskButton = this.CreateStyleButton("TODOリストに追加", new Color(39, 174, 96), Color.WHITE);
+        this.AddListTaskButton = this.CreateStyleButton("TODOリストに追加", new Color(39, 174, 96), Color.WHITE,
+            l -> this.AddListTaskButtonHoverListener = l);
         this.AddListTaskButton.setActionCommand("AddListTaskButton");
 
         // タスクリストパネル
@@ -298,6 +312,14 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
      */
     private JButton CreateStyleButton(String text, Color bgColor, Color fgColor)
     {
+        return this.CreateStyleButton(text, bgColor, fgColor, null);
+    }
+
+    /**
+     * ボタンのスタイルとエフェクト（ホバーリスナーを保存する場合）
+     */
+    private JButton CreateStyleButton(String text, Color bgColor, Color fgColor, Consumer<MouseAdapter> onListenerCreated)
+    {
         JButton button = new JButton(text);
         button.setBackground(bgColor);
         button.setForeground(fgColor);
@@ -307,7 +329,7 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));// ホバー時のカーソルを変更
 
         // ホバーエフェクト
-        button.addMouseListener(new java.awt.event.MouseAdapter() {
+        MouseAdapter listener = new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent e) {
                 // ボタンが有効な場合のみ色を変える
                 if (button.isEnabled())
@@ -319,8 +341,11 @@ public class TodoAICreateListTaskContentPanel extends JPanelViewBase implements 
             public void mouseExited(java.awt.event.MouseEvent e) {
                 button.setBackground(bgColor);
             }
-        });
-
+        };
+        button.addMouseListener(listener);
+        if (onListenerCreated != null) {
+            onListenerCreated.accept(listener);
+        }
         return button;
     }
 

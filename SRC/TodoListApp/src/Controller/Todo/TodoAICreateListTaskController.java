@@ -91,12 +91,9 @@ public class TodoAICreateListTaskController extends ControllerBase implements IT
     public void Ask(String userInput)
     {
         this.Model.Ask(userInput ,(isBusyChanged) -> {
-            // TODO: 処理中の画面非活性処理
-            System.out.println("処理中");
-            System.out.println(isBusyChanged);
+            this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "処理中：" + isBusyChanged); });
             this.View.SideElementDisabled(isBusyChanged);
             this.View.LeftElementDisabled(isBusyChanged);
-            // TODO: ログ出力処理
         }, (result) -> {
             // 処理成功時
             if (result.Value1 == ResultType.Success)
@@ -121,10 +118,9 @@ public class TodoAICreateListTaskController extends ControllerBase implements IT
     public void ReAsk(String userInput, String addUserInput)
     {
         this.Model.ReAsk(userInput, addUserInput, (isBusyChanged) -> {
-            System.out.println("処理中");
+            this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "処理中：" + isBusyChanged); });
             this.View.SideElementDisabled(isBusyChanged);
             this.View.LeftElementDisabled(isBusyChanged);
-            // TODO: ログ出力処理
         }, (result) -> {
             // 処理成功時
             if (result.Value1 == ResultType.Success)
@@ -147,24 +143,18 @@ public class TodoAICreateListTaskController extends ControllerBase implements IT
      */
     public void EditAITaskList(int userDeleteTaskId)
     {
-        this.View.SideElementDisabled(true);
-        this.View.LeftElementDisabled(true);
         // モデルにあるタスクリストの修正+情報の取得
         ResultType result = this.Model.EditAITaskList(userDeleteTaskId);
         if (result == ResultType.Success)
         {
-            // Modelの保存データを取得し画面に表示する：一旦ここに書いて必要なら部品化
+            // Modelの保存データを取得し画面に表示する
             AIListTask aIListTask = this.Model.GetAIListTask();
             this.View.SetAIListTask(aIListTask);
-            this.View.SideElementDisabled(false);
-            this.View.LeftElementDisabled(false);
         }
         else
         {
             // 失敗のダイアログを表示する
             this.View.ListTaskCreateFailDialog();
-            this.View.SideElementDisabled(false);
-            this.View.LeftElementDisabled(false);
         }
     }
 
@@ -201,43 +191,41 @@ public class TodoAICreateListTaskController extends ControllerBase implements IT
         //リスト登録処理の呼び出し
         this.Model.CreateUserList((isBusy) ->
         {
-            System.out.println("リスト登録中");
+            this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リスト登録中：" + isBusy); });
             this.View.SideElementDisabled(isBusy);
             this.View.LeftElementDisabled(isBusy);
         }, (resultList) ->
         {
             if (resultList == ResultType.Success)
             {
-                System.out.println("リスト登録成功");
+                this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リスト登録成功"); });
                 //タスク登録処理の呼び出し
                 this.Model.CreateUserTask((isBusy) ->
                 {
-                    System.out.println("タスク登録中");
+                    this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "タスク登録中：" + isBusy); });
                     this.View.SideElementDisabled(isBusy);
                     this.View.LeftElementDisabled(isBusy);
                 }, (resultTask) ->
                 {
                     if (resultTask == ResultType.Success)
                     {
-                        System.out.println("タスク登録成功");
+                        this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "タスク登録成功"); });
                         // 画面への成功の通知＋画面の切り替え
                         this.View.ListTaskCreateSuccessDialog();
                         this.View.Clear();
                     }
                     else
                     {
-                        System.out.println("タスク登録失敗");
+                        this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "タスク登録失敗"); });
                         // リストの削除
                         this.DeleteList();
-                        // TODO:失敗時の処理
                         this.View.ListTaskCreateFailDialog();
                     }
                 });
             }
             else
             {
-                System.out.println("リスト登録失敗");
-                // TODO:失敗時の処理
+                this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リスト登録失敗"); });
                 this.View.ListTaskCreateFailDialog();
             }
         });
@@ -245,9 +233,6 @@ public class TodoAICreateListTaskController extends ControllerBase implements IT
 
     /**
      * リスト削除メソッド
-     * @param listId 画面選択リストID
-     * @param isBusyChanged 処理中イベントコールバック
-     * @param finished 処理完了コールバック
      */
     public void DeleteList()
     {
@@ -256,11 +241,11 @@ public class TodoAICreateListTaskController extends ControllerBase implements IT
         }, (result) -> {
             if (result == ResultType.Success)
             {
-                System.out.println("リスト削除成功");
+                this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リスト削除成功"); });
             }
             else
             {
-                System.out.println("リスト削除失敗");
+                this.WithLogger((logger) -> { logger.WriteLog(LogLevel.Info, "リスト削除失敗"); });
             }
         });
     }

@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * LM studioからの回答代入用クラス
+ * AIからの回答代入用クラス
  */
 public class AIListTask {
     // リスト名

@@ -1,16 +1,15 @@
 package Model.Todo;
 
-import Interface.Model.ILogger;
-import Interface.Model.IValidationUtil;
-import Interface.Model.Process.Todo.ITodoProcess;
-import Interface.Model.Todo.ITodoAICreateListTaskModel;
-
 import java.util.List;
 import java.util.function.Consumer;
-import Interface.Model.Process.Todo.ITodoProcess.ResultType;
+
 import Entity.AIListTask;
 import Entity.Pair;
 import Entity.UserData;
+import Interface.Model.ILogger;
+import Interface.Model.Process.Todo.ITodoProcess;
+import Interface.Model.Process.Todo.ITodoProcess.ResultType;
+import Interface.Model.Todo.ITodoAICreateListTaskModel;
 
 
 
@@ -25,11 +24,10 @@ public class TodoAICreateListTaskModel extends TodoBaseModel implements ITodoAIC
      * @param todoProcess Todo処理インスタンス
      * @param ログイン中のユーザID
      */
-    public TodoAICreateListTaskModel(ILogger logger, ITodoProcess todoProcess, UserData userData,IValidationUtil util)
+    public TodoAICreateListTaskModel(ILogger logger, ITodoProcess todoProcess, UserData userData)
     {
         this.Process = todoProcess;
         this.Logger = logger;
-        this.Util = util;
         this.UserData = userData;
     }
 
@@ -113,7 +111,6 @@ public class TodoAICreateListTaskModel extends TodoBaseModel implements ITodoAIC
      */
     public ResultType EditAIList(String userEditListName)
     {
-        // TODO: リスト名に対してバリデーションをかける必要がある
         try
         {
             this.AIListTask.listName = userEditListName;
@@ -133,7 +130,6 @@ public class TodoAICreateListTaskModel extends TodoBaseModel implements ITodoAIC
      */
     public ResultType EditAITaskList(int userDeleteTaskId)
     {
-        // TODO:失敗時のことも考える
         try
         {
             this.AIListTask.tasks.remove(userDeleteTaskId);

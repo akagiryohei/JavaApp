@@ -29,7 +29,6 @@ public interface ITodoListBaseDI
      */
     public ITodoGanttchartController CreateGanttchartMVC(ITodoListBaseView todoListBaseView);
 
-    // Todoリスト（AI作成リスト・タスク案型表示）
     /**
      * Todoリスト（AI作成リスト・タスク案型表示）
      * @return 依存性注入したTodoAICreateListTaskControllerオブジェクト

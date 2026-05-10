@@ -10,23 +10,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.FutureTask;
 import java.util.function.Consumer;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-
 import Entity.AIListTask;
 import Entity.Pair;
 import Entity.UserList;
 import Entity.UserTask;
-import Entity.DB.ListColumn;
-import Interface.Model.IDBClient;
-import Interface.Model.ILMStudioAPIClient;
-import Interface.Model.Process.Todo.ITodoProcess;
+import Entity.AI.AIResultType;
 import Entity.DB.DBResultType;
-import Entity.LMStudio.LMStudioResultType;
 import Entity.DB.InputTask;
+import Entity.DB.ListColumn;
 import Entity.DB.TaskColumn;
+import Interface.Model.IAIAPIClient;
+import Interface.Model.IDBClient;
+import Interface.Model.Process.Todo.ITodoProcess;
+import Interface.Model.Process.Todo.ITodoProcess.ResultType;
 
 /**
   * Todoリスト処理クラス
@@ -42,21 +38,21 @@ public class TodoProcess implements ITodoProcess
   /** DB処理キューインスタンス */
   private ExecutorService DBQueue;
 
-  /** LM Studio接続クライアントインスタンス */
-  private ILMStudioAPIClient LMStudioAPIClient;
+  /** AI接続クライアントインスタンス */
+  private IAIAPIClient AIAPIClient;
 
   /**
    * コンストラクタ
    * 依存性注入
    * @param dbClient DB接続クライアントインスタンス
    * @param dbQueue  DB処理キューインスタンス
-   * @param lMStudioAPIClient LM Studio接続クライアントインスタンス
+   * @param aiAPIClient AI接続クライアントインスタンス
   */
-  public TodoProcess(IDBClient dbClient, ExecutorService dbQueue, ILMStudioAPIClient LMStudioAPIClient)
+  public TodoProcess(IDBClient dbClient, ExecutorService dbQueue, IAIAPIClient aiAPIClient)
   {
     this.DBClient = dbClient;
     this.DBQueue = dbQueue;
-    this.LMStudioAPIClient = LMStudioAPIClient;
+    this.AIAPIClient = aiAPIClient;
   }
 
   /**
@@ -1145,6 +1141,7 @@ public class TodoProcess implements ITodoProcess
             isBusyChanged.accept(false);
             return;
           }
+
           isBusyChanged.accept(false);
           finished.accept(ret);
       }
@@ -1245,7 +1242,7 @@ public class TodoProcess implements ITodoProcess
   {
     /** 処理中フラグを立てる */
     isBusyChanged.accept(true);
-    var task = new FutureTask<>(new AskTask(this.LMStudioAPIClient, userInput))
+    var task = new FutureTask<>(new AskTask(this.AIAPIClient, userInput))
     {
       @Override
       protected void done() {
@@ -1271,8 +1268,8 @@ public class TodoProcess implements ITodoProcess
    */
   private class AskTask implements Callable
   {
-    /** LMStudioAPIClient */
-    private ILMStudioAPIClient LMStudioAPIClient;
+    /** AIAPIClient */
+    private IAIAPIClient AIAPIClient;
     
     /** ユーザー入力 */
     private String UserInput;
@@ -1280,9 +1277,9 @@ public class TodoProcess implements ITodoProcess
     /**
      * コンストラクタ
      */
-    public AskTask(ILMStudioAPIClient lMStudioAPIClient, String userInput)
+    public AskTask(IAIAPIClient aiAPIClient, String userInput)
     {
-      this.LMStudioAPIClient = lMStudioAPIClient;
+      this.AIAPIClient = aiAPIClient;
       this.UserInput = userInput;
     }
 
@@ -1299,50 +1296,23 @@ public class TodoProcess implements ITodoProcess
 
       try
       {
-        var ret = this.LMStudioAPIClient.Ask(this.UserInput);
-
-        /** リスト名とタスク名が入る */
-        JsonObject aiResponse = ret.Value2;
+        var ret = this.AIAPIClient.Ask(this.UserInput);
 
         switch (ret.Value1)
         {
-          case LMStudioResultType.Success:
+          case AIResultType.Success:
             retResult = ResultType.Success;
             break;
-          case LMStudioResultType.Failure:
-            retResult =ResultType.Failure;
+          case AIResultType.Failure:
+            retResult = ResultType.Failure;
             break;
-          case LMStudioResultType.Timeout:
+          case AIResultType.Timeout:
             retResult = ResultType.Timeout;
             break;
           default:
             break;
         }
-        /** LMStudioから返されたリスト名とタスク名を設定 */
-        // 先にタスク名を配列にしておいた方がいいのか？けどもしfor文で取り出せるなら入れ替える必要なくない？
-        String jsonContent = aiResponse.getAsJsonArray("choices")
-        .get(0).getAsJsonObject()
-        .getAsJsonObject("message")
-        .get("content").getAsString();
-        jsonContent = jsonContent
-                .replaceAll("^```json", "")
-                .replaceAll("^```", "")
-                .replaceAll("```$", "")
-                .trim();
-        System.out.println(jsonContent);
-
-        // JSON 文字列をパース
-        JsonObject contentJson = JsonParser.parseString(jsonContent).getAsJsonObject();
-        String listName = contentJson.get("リスト名").getAsString();
-        retAIListTask.listName = listName;
-
-        JsonArray tasksArray = contentJson.getAsJsonArray("タスク");
-        for (JsonElement taskElement : tasksArray)
-        {
-          String taskName = taskElement.getAsString();
-          retAIListTask.tasks.add(taskName);
-        }
-        result = new Pair<ResultType, AIListTask>(retResult, retAIListTask);
+        result = new Pair<ResultType, AIListTask>(retResult, ret.Value2);
       } catch (Exception e)
       {
         result = new Pair<ResultType, AIListTask>(ResultType.Failure, retAIListTask);
@@ -1362,7 +1332,7 @@ public class TodoProcess implements ITodoProcess
   {
     /** 処理中フラグを立てる */
     isBusyChanged.accept(true);
-    var task = new FutureTask<>(new ReAskTask(this.LMStudioAPIClient, userInput, addUserInput))
+    var task = new FutureTask<>(new ReAskTask(this.AIAPIClient, userInput, addUserInput))
     {
       @Override
       protected void done() {
@@ -1386,8 +1356,8 @@ public class TodoProcess implements ITodoProcess
    */
   private class ReAskTask implements Callable
   {
-    /** LMStudioAPIClient */
-    private ILMStudioAPIClient LMStudioAPIClient;
+    /** AIAPIClient */
+    private IAIAPIClient AIAPIClient;
     
     /** ユーザー入力 */
     private String UserInput;
@@ -1398,9 +1368,9 @@ public class TodoProcess implements ITodoProcess
     /**
      * コンストラクタ
      */
-    public ReAskTask(ILMStudioAPIClient lMStudioAPIClient, String userInput, String addUserInput)
+    public ReAskTask(IAIAPIClient aiAPIClient, String userInput, String addUserInput)
     {
-      this.LMStudioAPIClient = lMStudioAPIClient;
+      this.AIAPIClient = aiAPIClient;
       this.UserInput = userInput;
       this.AddUserInput = addUserInput;
     }
@@ -1418,50 +1388,23 @@ public class TodoProcess implements ITodoProcess
 
       try
       {
-        var ret = this.LMStudioAPIClient.ReAsk(this.UserInput, this.AddUserInput);
-
-        /** リスト名とタスク名が入る */
-        JsonObject aiResponse = ret.Value2;
+        var ret = this.AIAPIClient.ReAsk(this.UserInput, this.AddUserInput);
 
         switch (ret.Value1)
         {
-          case LMStudioResultType.Success:
+          case AIResultType.Success:
             retResult = ResultType.Success;
             break;
-          case LMStudioResultType.Failure:
-            retResult =ResultType.Failure;
+          case AIResultType.Failure:
+            retResult = ResultType.Failure;
             break;
-          case LMStudioResultType.Timeout:
+          case AIResultType.Timeout:
             retResult = ResultType.Timeout;
             break;
           default:
             break;
         }
-        /** LMStudioから返されたリスト名とタスク名を設定 */
-        // 先にタスク名を配列にしておいた方がいいのか？けどもしfor文で取り出せるなら入れ替える必要なくない？
-        String jsonContent = aiResponse.getAsJsonArray("choices")
-        .get(0).getAsJsonObject()
-        .getAsJsonObject("message")
-        .get("content").getAsString();
-        jsonContent = jsonContent
-                .replaceAll("^```json", "")
-                .replaceAll("^```", "")
-                .replaceAll("```$", "")
-                .trim();
-        System.out.println(jsonContent);
-
-        // JSON 文字列をパース
-        JsonObject contentJson = JsonParser.parseString(jsonContent).getAsJsonObject();
-        String listName = contentJson.get("リスト名").getAsString();
-        retAIListTask.listName = listName;
-
-        JsonArray tasksArray = contentJson.getAsJsonArray("タスク");
-        for (JsonElement taskElement : tasksArray)
-        {
-          String taskName = taskElement.getAsString();
-          retAIListTask.tasks.add(taskName);
-        }
-        result = new Pair<ResultType, AIListTask>(retResult, retAIListTask);
+        result = new Pair<ResultType, AIListTask>(retResult, ret.Value2);
       } catch (Exception e)
       {
         result = new Pair<ResultType, AIListTask>(ResultType.Failure, retAIListTask);

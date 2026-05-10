@@ -1,22 +1,12 @@
 package DI;
 
-import View.*;
-
 import java.util.concurrent.ExecutorService;
 
 import javax.swing.JFrame;
 
-import View.Dialog.CommonDialogView;
-import View.Dialog.DialogView;
-import View.Dialog.FatalErrorDialogView;
-import Controller.*;
-import Model.*;
-import View.Login.*;
-import View.Todo.*;
-import Controller.Login.*;
-import Controller.Todo.*;
-import Model.Login.*;
-import Model.Todo.*;
+import Controller.MainWindowController;
+import Controller.Login.LoginBaseController;
+import Controller.Todo.TodoListBaseController;
 import DI.Login.LoginBaseDI;
 import DI.Todo.TodoListBaseDI;
 import Entity.UserData;
@@ -24,9 +14,9 @@ import Interface.Controller.IMainWindowController;
 import Interface.Controller.Login.ILoginBaseController;
 import Interface.Controller.Todo.ITodoListBaseController;
 import Interface.DI.IMainWindowDI;
+import Interface.Model.IAIAPIClient;
 import Interface.Model.IDBClient;
 import Interface.Model.IGetHolidayInfoService;
-import Interface.Model.ILMStudioAPIClient;
 import Interface.Model.ILogger;
 import Interface.Model.IMainWindowModel;
 import Interface.Model.Login.ILoginBaseModel;
@@ -34,6 +24,14 @@ import Interface.View.IMainWindowView;
 import Interface.View.IViewProxyUtil;
 import Interface.View.Login.ILoginBaseView;
 import Interface.View.Todo.ITodoListBaseView;
+import Model.MainWindowModel;
+import Model.Login.LoginBaseModel;
+import View.MainWindowView;
+import View.Dialog.CommonDialogView;
+import View.Dialog.DialogView;
+import View.Dialog.FatalErrorDialogView;
+import View.Login.LoginBaseView;
+import View.Todo.TodoListBaseView;
 
 // MainWindow画面の依存性注入クラス
 public class MainWindowDI implements IMainWindowDI
@@ -45,7 +43,7 @@ public class MainWindowDI implements IMainWindowDI
   private IDBClient DBClient;
 
   // AIクライアントインスタンス
-  private ILMStudioAPIClient LMStudioAPIClient;
+  private IAIAPIClient AIAPIClient;
 
   // 祝日情報取得サービスインスタンス
   private IGetHolidayInfoService GetHolidayInfoService;
@@ -66,11 +64,11 @@ public class MainWindowDI implements IMainWindowDI
   private CommonDialogView CommonDialogViewInstance;
 
   // コンストラクタ
-  public MainWindowDI(ILogger logger, IDBClient dbClient, ILMStudioAPIClient lMStudioAPIClient, IGetHolidayInfoService getHolidayInfoService, ExecutorService dbQueue, IViewProxyUtil viewProxyUtil)
+  public MainWindowDI(ILogger logger, IDBClient dbClient, IAIAPIClient aiApiClient, IGetHolidayInfoService getHolidayInfoService, ExecutorService dbQueue, IViewProxyUtil viewProxyUtil)
   {
     this.Logger = logger;
     this.DBClient = dbClient;
-    this.LMStudioAPIClient = lMStudioAPIClient;
+    this.AIAPIClient = aiApiClient;
     this.DBQueue = dbQueue;
     this.GetHolidayInfoService = getHolidayInfoService;
     this.ViewProxyUtil = viewProxyUtil;
@@ -114,7 +112,7 @@ public class MainWindowDI implements IMainWindowDI
   public ITodoListBaseController CreateTodoListBaseMVC(IMainWindowView mainWindowView, UserData userData)
   {
     // 子要素のDIを作成
-    var todoListBaseDi = new TodoListBaseDI(this.Logger, this.DBClient, this.LMStudioAPIClient,this.GetHolidayInfoService, this.MainWindowViewInstance, this.DBQueue, userData, this.CommonDialogViewInstance, this.ViewProxyUtil);
+    var todoListBaseDi = new TodoListBaseDI(this.Logger, this.DBClient, this.AIAPIClient,this.GetHolidayInfoService, this.MainWindowViewInstance, this.DBQueue, userData, this.CommonDialogViewInstance, this.ViewProxyUtil);
 
     ITodoListBaseView todoListBaseView = new TodoListBaseView(todoListBaseDi, this.MainWindowViewInstance);
     ITodoListBaseController todoListBaseController = new TodoListBaseController(todoListBaseView, this.ViewProxyUtil);

@@ -5,16 +5,17 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.swing.RepaintManager;
 import javax.swing.SwingUtilities;
+
 import DI.MainWindowDI;
 import Entity.Enum.LogLevel;
 import Entity.Enum.PropertyKey;
 import Interface.Controller.IMainWindowController;
 import Interface.DI.IMainWindowDI;
+import Interface.Model.IAIAPIClient;
 import Interface.Model.IDBClient;
 import Interface.Model.IDuplicateLaunchChecker;
 import Interface.Model.IGetHolidayInfoService;
 import Interface.Model.IGetProperties;
-import Interface.Model.ILMStudioAPIClient;
 import Interface.Model.ILogger;
 import Model.DBClient;
 import Model.DuplicateLaunchChecker;
@@ -32,7 +33,7 @@ public class TodoListApp
   public static void main(String[] args)
   {
     // Settings.propertiesはbin配下に置くとリビルドにて消えるためsrc直下に置く
-    final String PROPERTIES_FILE_PATH = "bin/Settings.properties";
+    final String PROPERTIES_FILE_PATH = "src/Settings.properties";
     final String LOG_FOLDER_PATH = "bin/log/";
     final String SYUKUJITSU_CSV_FILE_PATH = "bin/syukujitsu.csv";
     final String LOCK_FILE_PATH = "bin/app.lock";
@@ -93,12 +94,12 @@ public class TodoListApp
                                       logger);
     
     // AIクライアントのインスタンスを生成する
-    ILMStudioAPIClient LMStudioAPIClient = new LMStudioAPIClient(settings.getProperty(PropertyKey.BaseUrl),
-                                      settings.getProperty(PropertyKey.ChatPath),
-                                      settings.getProperty(PropertyKey.ModelName),
-                                      settings.getProperty(PropertyKey.ApiKey),
-                                      settings.getProperty(PropertyKey.SystemPrompt),
-                                      logger);
+    IAIAPIClient LMStudioAPIClient = new LMStudioAPIClient(settings.getProperty(PropertyKey.BaseUrl),
+                                                           settings.getProperty(PropertyKey.ChatPath),
+                                                           settings.getProperty(PropertyKey.ModelName),
+                                                           settings.getProperty(PropertyKey.ApiKey),
+                                                           settings.getProperty(PropertyKey.SystemPrompt),
+                                                           logger);
 
     // DB処理キューの生成（シングルスレッド逐次実行）
     ExecutorService dbQueue = Executors.newSingleThreadExecutor();
